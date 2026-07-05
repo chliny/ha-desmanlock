@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from homeassistant.components.image import ImageEntity
 from homeassistant.config_entries import ConfigEntry
@@ -17,6 +17,7 @@ from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
 
 ALARM_SNAPSHOT_COUNT = 5
+MEDIA_SOURCE_TYPES = {"0", "1", "2", "3"}
 
 
 async def async_setup_entry(
@@ -95,8 +96,8 @@ class DesmanLockSnapshotImage(DesmanLockEntity, ImageEntity):
             return
 
         self._image_signature = signature
-        self._image_url = urljoin(BASE_URL, picture) if picture else None
-        self._image_last_updated = dt_util.utcnow() if picture else None
+        self._image_url = _snapshot_url(picture)
+        self._image_last_updated = dt_util.utcnow() if self._image_url else None
         self._cached_image = None
 
 
@@ -128,3 +129,19 @@ class DesmanLockAlarmSnapshotImage(DesmanLockSnapshotImage):
         if self._position >= len(snapshots):
             return {}
         return snapshots[self._position]
+
+
+def _snapshot_url(picture: str | None) -> str | None:
+    """Return a fetchable URL, excluding app-specific media descriptors."""
+    if not picture:
+        return None
+
+    parsed = urlparse(picture)
+    if parsed.scheme in {"http", "https"}:
+        return picture
+
+    parts = parsed.path.strip("/").split("/")
+    if len(parts) > 1 and parts[0] in MEDIA_SOURCE_TYPES:
+        return None
+
+    return urljoin(BASE_URL, picture)
