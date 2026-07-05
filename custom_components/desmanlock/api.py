@@ -12,6 +12,8 @@ import requests
 
 from .const import BASE_URL, DEFAULT_REGION_ID, USER_AGENT
 
+REQUEST_TIMEOUT = 25
+
 
 class DesmanLockApiError(Exception):
     """Base Desman Lock API error."""
@@ -59,7 +61,7 @@ class DesmanLockApiClient:
             headers=self._headers(auth=auth),
             params=params,
             data=data,
-            timeout=15,
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         payload = response.json()
