@@ -110,18 +110,6 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("softwareVersion"),
     ),
     DesmanSensorEntityDescription(
-        key="family_count",
-        translation_key="family_count",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda coordinator: _detail_and_config(coordinator).get("familyCount"),
-    ),
-    DesmanSensorEntityDescription(
-        key="temporary_authorization_count",
-        translation_key="temporary_authorization_count",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda coordinator: _detail_and_config(coordinator).get("tempAuthCount"),
-    ),
-    DesmanSensorEntityDescription(
         key="fingerprint_used_count",
         translation_key="fingerprint_used_count",
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -132,18 +120,6 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         translation_key="fingerprint_available_count",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("fingerUnusedNum"),
-    ),
-    DesmanSensorEntityDescription(
-        key="ic_card_used_count",
-        translation_key="ic_card_used_count",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda coordinator: _detail_and_config(coordinator).get("icCardUsedNum"),
-    ),
-    DesmanSensorEntityDescription(
-        key="ic_card_available_count",
-        translation_key="ic_card_available_count",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda coordinator: _detail_and_config(coordinator).get("icCardUnusedNum"),
     ),
     DesmanSensorEntityDescription(
         key="face_used_count",

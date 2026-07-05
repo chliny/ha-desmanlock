@@ -42,12 +42,8 @@
       "wifi_state": {"name": "Wi-Fi 状态"},
       "network_mode": {"name": "网络模式"},
       "software_version": {"name": "软件版本"},
-      "family_count": {"name": "家庭成员数量"},
-      "temporary_authorization_count": {"name": "临时授权数量"},
       "fingerprint_used_count": {"name": "已用指纹数量"},
       "fingerprint_available_count": {"name": "可用指纹数量"},
-      "ic_card_used_count": {"name": "已用门卡数量"},
-      "ic_card_available_count": {"name": "可用门卡数量"},
       "face_used_count": {"name": "已用人脸数量"},
       "face_available_count": {"name": "可用人脸数量"},
       "doorbell_volume": {"name": "门铃音量"}

@@ -42,12 +42,8 @@
       "wifi_state": {"name": "Wi-Fi status"},
       "network_mode": {"name": "Network mode"},
       "software_version": {"name": "Software version"},
-      "family_count": {"name": "Family member count"},
-      "temporary_authorization_count": {"name": "Temporary authorization count"},
       "fingerprint_used_count": {"name": "Used fingerprint count"},
       "fingerprint_available_count": {"name": "Available fingerprint count"},
-      "ic_card_used_count": {"name": "Used access card count"},
-      "ic_card_available_count": {"name": "Available access card count"},
       "face_used_count": {"name": "Used face count"},
       "face_available_count": {"name": "Available face count"},
       "doorbell_volume": {"name": "Doorbell volume"}
