@@ -21,7 +21,7 @@
       "cannot_connect": "Unable to connect or sign in"
     },
     "abort": {
-      "already_configured": "This account is already configured"
+      "already_configured": "This lock is already configured"
     }
   },
   "entity": {

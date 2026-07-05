@@ -38,11 +38,10 @@ class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 self._user_input = user_input
-                await self.async_set_unique_id(user_input[CONF_PHONE])
-                self._abort_if_unique_id_configured()
                 if len(self._locks) > 1:
                     return await self.async_step_lock()
                 lock_id = str(self._locks[0].get("lockId")) if self._locks else ""
+                await self._async_set_lock_unique_id(lock_id)
                 return self.async_create_entry(
                     title=self._entry_title(lock_id),
                     data={**user_input, CONF_LOCK_ID: lock_id},
@@ -70,6 +69,7 @@ class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
         if user_input is not None:
             lock_id = user_input[CONF_LOCK_ID]
+            await self._async_set_lock_unique_id(lock_id)
             return self.async_create_entry(
                 title=self._entry_title(lock_id),
                 data={**self._user_input, CONF_LOCK_ID: lock_id},
@@ -80,6 +80,11 @@ class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_LOCK_ID): vol.In(locks)}),
             errors=errors,
         )
+
+    async def _async_set_lock_unique_id(self, lock_id: str) -> None:
+        """Set an ID that allows multiple locks from the same account."""
+        await self.async_set_unique_id(f"{self._user_input[CONF_PHONE]}_{lock_id}")
+        self._abort_if_unique_id_configured()
 
     def _entry_title(self, lock_id: str) -> str:
         """Return entry title."""

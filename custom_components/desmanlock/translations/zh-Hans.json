@@ -21,7 +21,7 @@
       "cannot_connect": "无法连接或登录失败"
     },
     "abort": {
-      "already_configured": "该账号已配置"
+      "already_configured": "该门锁已配置"
     }
   },
   "entity": {
