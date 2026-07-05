@@ -1,0 +1,70 @@
+get_dynamic_password:
+  fields:
+    lock_id:
+      selector:
+        text:
+      required: false
+
+get_digit_passwords:
+  fields:
+    lock_id:
+      selector:
+        text:
+      required: false
+
+add_digit_password:
+  fields:
+    lock_id:
+      selector:
+        text:
+      required: false
+    real_time_switch:
+      selector:
+        number:
+          min: 0
+          max: 1
+          mode: box
+      required: true
+    range_time:
+      selector:
+        text:
+      required: true
+    remarks:
+      selector:
+        text:
+      required: false
+    alarm_switch:
+      selector:
+        number:
+          min: 0
+          max: 1
+          mode: box
+      required: false
+
+update_digit_password:
+  fields:
+    id:
+      selector:
+        text:
+      required: true
+    remarks:
+      selector:
+        text:
+      required: false
+    real_time_switch:
+      selector:
+        number:
+          min: 0
+          max: 1
+          mode: box
+      required: true
+    range_time:
+      selector:
+        text:
+      required: true
+    state:
+      selector:
+        number:
+          min: 0
+          mode: box
+      required: true

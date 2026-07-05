@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "德施曼智能锁",
+        "description": "使用德施曼账号登录。",
+        "data": {
+          "phone": "手机号",
+          "password": "密码",
+          "region_id": "区域 ID"
+        }
+      },
+      "lock": {
+        "title": "选择门锁",
+        "data": {
+          "lock_id": "门锁"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接或登录失败"
+    },
+    "abort": {
+      "already_configured": "该账号已配置"
+    }
+  },
+  "entity": {
+    "image": {
+      "last_open_snapshot": {"name": "最近开门抓拍"},
+      "last_alarm_snapshot": {"name": "安防抓拍 {position}"}
+    },
+    "sensor": {
+      "battery_percentage": {"name": "电池电量"},
+      "cateye_battery_percentage": {"name": "猫眼电量"},
+      "battery_status": {"name": "电池状态"},
+      "last_open_user": {"name": "最近开门用户"},
+      "last_open_mode": {"name": "最近开门方式"},
+      "last_open_time": {"name": "最近开门时间"},
+      "open_door_log": {"name": "最近开门日志"},
+      "network_signal": {"name": "网络信号"},
+      "wifi_ssid": {"name": "Wi-Fi SSID"},
+      "wifi_state": {"name": "Wi-Fi 状态"},
+      "network_mode": {"name": "网络模式"},
+      "software_version": {"name": "软件版本"},
+      "family_count": {"name": "家庭成员数量"},
+      "temporary_authorization_count": {"name": "临时授权数量"},
+      "fingerprint_used_count": {"name": "已用指纹数量"},
+      "fingerprint_available_count": {"name": "可用指纹数量"},
+      "ic_card_used_count": {"name": "已用门卡数量"},
+      "ic_card_available_count": {"name": "可用门卡数量"},
+      "face_used_count": {"name": "已用人脸数量"},
+      "face_available_count": {"name": "可用人脸数量"},
+      "doorbell_volume": {"name": "门铃音量"}
+    }
+  },
+  "services": {
+    "get_dynamic_password": {
+      "name": "获取动态密码",
+      "description": "为指定门锁生成动态密码。",
+      "fields": {
+        "lock_id": {"name": "门锁 ID", "description": "可选；默认使用已配置的门锁。"}
+      }
+    },
+    "get_digit_passwords": {
+      "name": "获取数字密码",
+      "description": "获取指定门锁的数字密码列表。",
+      "fields": {
+        "lock_id": {"name": "门锁 ID", "description": "可选；默认使用已配置的门锁。"}
+      }
+    },
+    "add_digit_password": {
+      "name": "添加数字密码",
+      "description": "为指定门锁添加数字密码。",
+      "fields": {
+        "lock_id": {"name": "门锁 ID", "description": "可选；默认使用已配置的门锁。"},
+        "real_time_switch": {"name": "实时开关", "description": "实时生效开关，取值为 0 或 1。"},
+        "range_time": {"name": "有效时间范围", "description": "密码的有效时间范围。"},
+        "remarks": {"name": "备注", "description": "密码备注。"},
+        "alarm_switch": {"name": "告警开关", "description": "告警开关，取值为 0 或 1。"}
+      }
+    },
+    "update_digit_password": {
+      "name": "更新数字密码",
+      "description": "更新已有数字密码。",
+      "fields": {
+        "id": {"name": "密码 ID", "description": "需要更新的密码 ID。"},
+        "remarks": {"name": "备注", "description": "密码备注。"},
+        "real_time_switch": {"name": "实时开关", "description": "实时生效开关，取值为 0 或 1。"},
+        "range_time": {"name": "有效时间范围", "description": "密码的有效时间范围。"},
+        "state": {"name": "状态", "description": "密码状态。"}
+      }
+    }
+  }
+}

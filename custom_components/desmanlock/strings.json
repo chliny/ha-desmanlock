@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Desman Lock",
+        "description": "Sign in with your Desman account.",
+        "data": {
+          "phone": "Phone number",
+          "password": "Password",
+          "region_id": "Region ID"
+        }
+      },
+      "lock": {
+        "title": "Select lock",
+        "data": {
+          "lock_id": "Lock"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect or sign in"
+    },
+    "abort": {
+      "already_configured": "This account is already configured"
+    }
+  },
+  "entity": {
+    "image": {
+      "last_open_snapshot": {"name": "Latest unlock snapshot"},
+      "last_alarm_snapshot": {"name": "Security snapshot {position}"}
+    },
+    "sensor": {
+      "battery_percentage": {"name": "Battery level"},
+      "cateye_battery_percentage": {"name": "Peephole camera battery level"},
+      "battery_status": {"name": "Battery status"},
+      "last_open_user": {"name": "Last unlock user"},
+      "last_open_mode": {"name": "Last unlock method"},
+      "last_open_time": {"name": "Last unlock time"},
+      "open_door_log": {"name": "Latest unlock log"},
+      "network_signal": {"name": "Network signal"},
+      "wifi_ssid": {"name": "Wi-Fi SSID"},
+      "wifi_state": {"name": "Wi-Fi status"},
+      "network_mode": {"name": "Network mode"},
+      "software_version": {"name": "Software version"},
+      "family_count": {"name": "Family member count"},
+      "temporary_authorization_count": {"name": "Temporary authorization count"},
+      "fingerprint_used_count": {"name": "Used fingerprint count"},
+      "fingerprint_available_count": {"name": "Available fingerprint count"},
+      "ic_card_used_count": {"name": "Used access card count"},
+      "ic_card_available_count": {"name": "Available access card count"},
+      "face_used_count": {"name": "Used face count"},
+      "face_available_count": {"name": "Available face count"},
+      "doorbell_volume": {"name": "Doorbell volume"}
+    }
+  },
+  "services": {
+    "get_dynamic_password": {
+      "name": "Get dynamic password",
+      "description": "Generate a dynamic password for the specified lock.",
+      "fields": {
+        "lock_id": {"name": "Lock ID", "description": "Optional; defaults to the configured lock."}
+      }
+    },
+    "get_digit_passwords": {
+      "name": "Get numeric passwords",
+      "description": "Get the numeric password list for the specified lock.",
+      "fields": {
+        "lock_id": {"name": "Lock ID", "description": "Optional; defaults to the configured lock."}
+      }
+    },
+    "add_digit_password": {
+      "name": "Add numeric password",
+      "description": "Add a numeric password to the specified lock.",
+      "fields": {
+        "lock_id": {"name": "Lock ID", "description": "Optional; defaults to the configured lock."},
+        "real_time_switch": {"name": "Real-time switch", "description": "Whether changes take effect immediately. Use 0 or 1."},
+        "range_time": {"name": "Validity period", "description": "The period during which the password is valid."},
+        "remarks": {"name": "Remarks", "description": "A note for the password."},
+        "alarm_switch": {"name": "Alarm switch", "description": "Whether the alarm is enabled. Use 0 or 1."}
+      }
+    },
+    "update_digit_password": {
+      "name": "Update numeric password",
+      "description": "Update an existing numeric password.",
+      "fields": {
+        "id": {"name": "Password ID", "description": "The ID of the password to update."},
+        "remarks": {"name": "Remarks", "description": "A note for the password."},
+        "real_time_switch": {"name": "Real-time switch", "description": "Whether changes take effect immediately. Use 0 or 1."},
+        "range_time": {"name": "Validity period", "description": "The period during which the password is valid."},
+        "state": {"name": "State", "description": "The password state."}
+      }
+    }
+  }
+}

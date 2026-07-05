@@ -1,0 +1,5 @@
+__pycache__/
+bak/
+.pyc
+.agents
+.codex
