@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import hashlib
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -13,6 +14,20 @@ import requests
 from .const import BASE_URL, DEFAULT_REGION_ID, USER_AGENT
 
 REQUEST_TIMEOUT = 25
+
+_AUTH_ERROR_CODES = {"401", "403", "10001", "10002"}
+_AUTH_ERROR_MESSAGES = ("未登录", "重新登录", "登录已过期", "登录失效")
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _is_auth_error(code: str, message: str) -> bool:
+    """Return whether an API error indicates an expired login session."""
+    return (
+        code in _AUTH_ERROR_CODES
+        or "token" in message.lower()
+        or any(text in message for text in _AUTH_ERROR_MESSAGES)
+    )
 
 
 class DesmanLockApiError(Exception):
@@ -70,7 +85,7 @@ class DesmanLockApiClient:
 
         message = payload.get("msg") or payload.get("message") or "Desman Lock API error"
         code = str(payload.get("code", ""))
-        if code in {"401", "403", "10001", "10002"} or "token" in message.lower():
+        if _is_auth_error(code, message):
             self.token = None
             raise DesmanLockAuthError(message)
         raise DesmanLockApiError(message)
@@ -103,6 +118,7 @@ class DesmanLockApiClient:
         try:
             return self._request("GET", path, params=params)
         except DesmanLockAuthError:
+            _LOGGER.debug("Authentication expired; logging in again")
             self.login()
             return self._request("GET", path, params=params)
 
@@ -112,6 +128,7 @@ class DesmanLockApiClient:
         try:
             return self._request("POST", path, data=data)
         except DesmanLockAuthError:
+            _LOGGER.debug("Authentication expired; logging in again")
             self.login()
             return self._request("POST", path, data=data)
 
