@@ -112,6 +112,20 @@ response_variable: desman_password
 - 某些传感器或图像无数据通常表示当前门锁型号或云端响应未提供相应字段。
 - 如需提交问题，请附上 Home Assistant 版本、集成版本、门锁型号和已脱敏的相关日志。请勿公开账号、密码、动态密码、数字密码、Token 或门锁 ID。
 
+### 开启 Debug 日志
+
+在 Home Assistant 中进入“设置 → 设备与服务 → 集成”，打开“德施曼智能锁”集成页面，在右上角菜单中选择“启用调试日志记录”。重新操作以复现问题后，再次打开菜单并选择“禁用调试日志记录”，Home Assistant 会自动下载调试日志文件。
+
+也可以在 `configuration.yaml` 中添加以下配置并重启 Home Assistant：
+
+```yaml
+logger:
+  logs:
+    custom_components.desmanlock: debug
+```
+
+问题排查结束后，建议删除以上配置或将日志级别恢复为 `info`，避免产生过多日志。
+
 ## 免责声明
 
 使用本集成产生的风险由使用者自行承担。请妥善保护 Home Assistant 实例及德施曼账号，尤其是在使用密码管理服务时。
