@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DesmanLockApiClient, DesmanLockApiError
+from .bluetooth import DesmanBluetoothLock
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.api = api
         self.lock_id = lock_id
+        self.bluetooth = DesmanBluetoothLock(hass, api, {}, {}, {})
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch latest data from DSM cloud."""
@@ -46,6 +48,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
                 records = await self.api.async_open_door_records(lock_id)
                 alarm_records = await self.api.async_alarm_records(lock_id)
+            self.bluetooth.update_data(selected_lock, detail, detail_config)
             return {
                 "locks": locks,
                 "lock": selected_lock,

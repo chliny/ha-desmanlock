@@ -58,7 +58,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -
 
 async def async_unload_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -> bool:
     """Unload a Desman Lock config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        await entry.runtime_data.bluetooth.async_close()
+    return unloaded
 
 
 def _async_setup_services(hass: HomeAssistant) -> None:

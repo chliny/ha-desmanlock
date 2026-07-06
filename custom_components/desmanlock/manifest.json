@@ -3,9 +3,9 @@
   "name": "Desman Lock",
   "codeowners": [],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["bluetooth"],
   "documentation": "",
   "iot_class": "cloud_polling",
-  "requirements": [],
+  "requirements": ["bleak-retry-connector>=3.6.0"],
   "version": "2.0.0"
 }

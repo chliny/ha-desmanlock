@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -24,6 +26,8 @@ from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
 
 AUTO_LOCK_TEXT = "自动上锁"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -88,12 +92,35 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
         }
 
     async def async_unlock(self, **kwargs: Any) -> None:
-        """Unlock is intentionally not implemented."""
-        raise NotImplementedError("Remote unlock requires encrypted command parameters and is not enabled")
+        """Unlock through the local Bluetooth transport."""
+        _LOGGER.debug("Home Assistant requested unlock for Desman lock %s", self.lock_id)
+        self._attr_is_unlocking = True
+        self.async_write_ha_state()
+        try:
+            await self.coordinator.bluetooth.async_unlock()
+            _LOGGER.debug("Bluetooth unlock completed for Desman lock %s", self.lock_id)
+        except Exception:
+            _LOGGER.exception("Bluetooth unlock failed for Desman lock %s", self.lock_id)
+            raise
+        finally:
+            self._attr_is_unlocking = False
+            await self.coordinator.async_request_refresh()
 
     async def async_lock(self, **kwargs: Any) -> None:
-        """Lock is intentionally not implemented."""
-        raise NotImplementedError("Remote lock is not supported by the cloud API")
+        """Refresh state after the lock's automatic relock cycle."""
+        _LOGGER.debug("Home Assistant requested lock-state confirmation for %s", self.lock_id)
+        self._attr_is_locking = True
+        self.async_write_ha_state()
+        try:
+            await self.coordinator.async_request_refresh()
+            if self.is_locked is False:
+                raise HomeAssistantError(
+                    "This Desman model exposes no active lock command; "
+                    "close the door and wait for automatic locking"
+                )
+        finally:
+            self._attr_is_locking = False
+            self.async_write_ha_state()
 
 
 def _extract_user(content: str | None) -> str | None:

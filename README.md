@@ -29,7 +29,7 @@
 部分实体是否有值取决于门锁型号、硬件能力和云端返回的数据。
 
 > [!NOTE]
-> 门锁实体当前仅用于展示云端推断的状态。远程上锁和远程开锁均未实现。
+> 门锁实体可在 Home Assistant 主机能发现门锁蓝牙信号时执行开锁。门锁协议没有主动上锁指令，上锁仍依赖门锁自身的自动上锁机制。
 
 ## 安装
 
@@ -103,7 +103,10 @@ response_variable: desman_password
 - 依赖德施曼云端和网络连接，无法离线工作。
 - 使用未公开的云端接口；德施曼更新服务后，集成可能需要同步适配。
 - 门锁状态根据最近一条开门/自动上锁记录推断，可能与门锁实时物理状态存在延迟或差异。
-- 当前不支持通过 Home Assistant 远程上锁或开锁。
+- 蓝牙开锁要求 Home Assistant 主机（或支持主动连接的蓝牙代理）位于门锁通信范围内。
+- 成功建立 GATT 连接后，集成会保持并复用该连接，直到门锁主动断开或集成卸载。
+- 集成会读取门锁协议配置，并按 App 规则选择标准或 DH 密钥参数；ID2 安全芯片协议依赖厂商原生认证库，目前会明确返回不支持错误。
+- App 协议只提供主动开锁；调用上锁会刷新并确认自动上锁状态，尚未自动上锁时会返回错误。
 
 ## 故障排查
 
@@ -125,6 +128,25 @@ logger:
 ```
 
 问题排查结束后，建议删除以上配置或将日志级别恢复为 `info`，避免产生过多日志。
+
+### 独立测试脚本
+
+测试脚本会直接导入集成的 `api.py` 和 `bluetooth.py`。首次运行传入账号密码，登录成功后会将 token 缓存到仓库根目录的 `.desmanlock-token.json`（权限 `0600`，已加入 `.gitignore`）；后续运行无需重复传入密码。token 失效时，再提供一次密码即可自动刷新。
+
+建议使用 Home Assistant 的 Python 环境运行：
+
+```bash
+DESMAN_PHONE='手机号' DESMAN_PASSWORD='密码' \
+  /var/lib/hass/.venv/bin/python scripts/test_lock.py status
+
+# 唤醒门锁键盘后执行真实蓝牙开锁
+/var/lib/hass/.venv/bin/python scripts/test_lock.py unlock
+
+# 查看最新记录，确认门锁是否已自动上锁
+/var/lib/hass/.venv/bin/python scripts/test_lock.py lock
+```
+
+账号下有多把锁时追加 `--lock-id LOCK_ID`。脚本默认输出完整 debug 流程，但不会打印 token、密码或完整加密指令。
 
 ## 免责声明
 
