@@ -4,3 +4,5 @@ bak/
 .agents
 .codex
 .desmanlock-token.json
+*.log
+scripts/*
