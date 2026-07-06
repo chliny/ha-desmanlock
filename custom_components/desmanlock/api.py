@@ -78,6 +78,12 @@ class DesmanLockApiClient:
             data=data,
             timeout=REQUEST_TIMEOUT,
         )
+        _LOGGER.debug(
+            "Desman API response: method=%s path=%s http_status=%s",
+            method,
+            path,
+            response.status_code,
+        )
         response.raise_for_status()
         payload = response.json()
         if payload.get("success") is True:
@@ -100,6 +106,7 @@ class DesmanLockApiClient:
 
     def login(self) -> str:
         """Log in and return an access token."""
+        _LOGGER.debug("Logging in to Desman API for phone ending in %s", self.phone[-4:])
         password_md5 = hashlib.md5(self.password.encode()).hexdigest()
         data = self._request(
             "POST",
