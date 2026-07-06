@@ -25,10 +25,6 @@
     }
   },
   "entity": {
-    "image": {
-      "last_open_snapshot": {"name": "Latest unlock snapshot"},
-      "last_alarm_snapshot": {"name": "Security snapshot {position}"}
-    },
     "sensor": {
       "battery_percentage": {"name": "Battery level"},
       "cateye_battery_percentage": {"name": "Peephole camera battery level"},

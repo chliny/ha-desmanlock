@@ -39,7 +39,6 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             detail: dict[str, Any] = {}
             detail_config: dict[str, Any] = {}
             records: list[dict[str, Any]] = []
-            alarm_records: list[dict[str, Any]] = []
             if lock_id:
                 detail = await self.api.async_lock_detail(lock_id)
                 try:
@@ -47,7 +46,6 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except DesmanLockApiError as err:
                     _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
                 records = await self.api.async_open_door_records(lock_id)
-                alarm_records = await self.api.async_alarm_records(lock_id)
             self.bluetooth.update_data(selected_lock, detail, detail_config)
             return {
                 "locks": locks,
@@ -57,8 +55,6 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "detail_config": detail_config,
                 "records": records,
                 "last_open": _last_open_record(records),
-                "alarm_records": alarm_records,
-                "alarm_snapshots": _picture_records(alarm_records, limit=5),
             }
         except DesmanLockApiError as err:
             raise UpdateFailed(str(err)) from err
@@ -99,28 +95,3 @@ def _last_record(records: list[dict[str, Any]]) -> dict[str, Any]:
     result["dayTag"] = latest_day.get("dayTag")
     result["weekTag"] = latest_day.get("weekTag")
     return result
-
-
-def _picture_records(
-    records: list[dict[str, Any]], *, limit: int
-) -> list[dict[str, Any]]:
-    """Flatten recent grouped records that contain pictures."""
-    pictures: list[dict[str, Any]] = []
-    for day in records:
-        details = day.get("logDetails") or []
-        for detail in reversed(details):
-            if not detail.get("pic"):
-                continue
-            result = dict(detail)
-            log_date = day.get("logDate")
-            log_time = detail.get("logTime")
-            if log_date and log_time:
-                result["datetime"] = f"{log_date} {log_time}"
-            elif log_date:
-                result["datetime"] = log_date
-            result["dayTag"] = day.get("dayTag")
-            result["weekTag"] = day.get("weekTag")
-            pictures.append(result)
-            if len(pictures) >= limit:
-                return pictures
-    return pictures

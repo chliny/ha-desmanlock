@@ -4,7 +4,7 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?logo=home-assistant-community-store&logoColor=white)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/v/release/chliny/ha-desmanlock)](https://github.com/chliny/ha-desmanlock/releases)
 
-将德施曼智能锁接入 Home Assistant。集成通过德施曼云端接口获取门锁状态、开门记录、设备信息及抓拍图片，并提供动态密码和数字密码管理服务。
+将德施曼智能锁接入 Home Assistant。集成通过德施曼云端接口获取门锁状态、开门记录及设备信息，并提供动态密码和数字密码管理服务。
 
 ## 功能
 
@@ -13,7 +13,6 @@
 - 展示门锁状态和最近开门信息
 - 展示门锁、猫眼电量及网络状态
 - 展示指纹和人脸统计信息
-- 展示最近开门抓拍及最多 5 张安防告警抓拍
 - 获取动态密码
 - 查询、添加和更新数字密码
 
@@ -22,7 +21,6 @@
 | 类型 | 实体 |
 | --- | --- |
 | 门锁 | 门锁状态、最近开门用户及开门记录等属性 |
-| 图像 | 最近开门抓拍、最多 5 张安防告警抓拍 |
 | 传感器 | 门锁电量、猫眼电量、电池状态、最近开门用户、开门方式、开门时间、开门日志、网络信号 |
 | 诊断传感器 | Wi-Fi、网络模式、软件版本、指纹、人脸及门铃音量等信息 |
 

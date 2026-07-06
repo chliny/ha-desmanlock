@@ -13,7 +13,7 @@ CONF_REGION_ID = "region_id"
 DEFAULT_REGION_ID = "1"
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
 
-PLATFORMS = ["image", "lock", "sensor"]
+PLATFORMS = ["lock", "sensor"]
 
 BASE_URL = "https://nyuwa.dsmxp.com"
 USER_AGENT = "desmanlock/6.5.7 (Home Assistant)"

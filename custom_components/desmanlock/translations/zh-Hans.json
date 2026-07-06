@@ -25,10 +25,6 @@
     }
   },
   "entity": {
-    "image": {
-      "last_open_snapshot": {"name": "最近开门抓拍"},
-      "last_alarm_snapshot": {"name": "安防抓拍 {position}"}
-    },
     "sensor": {
       "battery_percentage": {"name": "电池电量"},
       "cateye_battery_percentage": {"name": "猫眼电量"},
