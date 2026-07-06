@@ -1,20 +1,10 @@
-# Desman Lock
+# 德斯曼智能锁homeassistant集成
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=home-assistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?logo=home-assistant-community-store&logoColor=white)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/v/release/chliny/ha-desmanlock)](https://github.com/chliny/ha-desmanlock/releases)
 
 将德施曼智能锁接入 Home Assistant。集成通过德施曼云端接口获取门锁状态、开门记录及设备信息，并提供动态密码和数字密码管理服务。
-
-## 功能
-
-- 通过 Home Assistant 界面完成账号登录和门锁选择
-- 每 30 秒从云端更新一次设备数据
-- 展示门锁状态和最近开门信息
-- 展示门锁、猫眼电量及网络状态
-- 展示指纹和人脸统计信息
-- 获取动态密码
-- 查询、添加和更新数字密码
 
 ### 实体
 
@@ -27,7 +17,7 @@
 部分实体是否有值取决于门锁型号、硬件能力和云端返回的数据。
 
 > [!NOTE]
-> 门锁实体可在 Home Assistant 主机能发现门锁蓝牙信号时执行开锁。门锁协议没有主动上锁指令，上锁仍依赖门锁自身的自动上锁机制。
+> 门锁实体可在 Home Assistant 主机能发现门锁蓝牙信号时执行开锁。官方 App 未提供主动上锁指令，上锁仍依赖门锁自身的自动上锁机制；调用上锁会直接返回错误。
 
 ## 安装
 
@@ -54,17 +44,6 @@
 3. 确认目录中包含 `manifest.json`、`config_flow.py` 等文件。
 4. 重启 Home Assistant。
 
-最终目录结构应类似：
-
-```text
-config/
-└── custom_components/
-    └── desmanlock/
-        ├── __init__.py
-        ├── manifest.json
-        └── ...
-```
-
 ## 配置
 
 1. 进入 **设置 → 设备与服务**。
@@ -73,44 +52,19 @@ config/
 4. 输入德施曼账号手机号、密码和区域 ID。中国大陆账号通常保持默认区域 ID `1`。
 5. 如果账号绑定了多把门锁，选择需要接入的门锁。再次添加集成并选择其他门锁，即可将同一账号下的多把门锁全部接入。
 
-## 服务
-
-集成提供以下服务，可在 **开发者工具 → 操作** 中调用。所有服务都会返回响应数据；在自动化或脚本中调用时，请使用 `response_variable` 接收结果。
-
-| 服务 | 说明 | 主要参数 |
-| --- | --- | --- |
-| `desmanlock.get_dynamic_password` | 获取动态密码 | `lock_id`（可选） |
-| `desmanlock.get_digit_passwords` | 获取数字密码列表 | `lock_id`（可选） |
-| `desmanlock.add_digit_password` | 添加数字密码 | `real_time_switch`、`range_time`、`remarks`、`alarm_switch` |
-| `desmanlock.update_digit_password` | 更新数字密码 | `id`、`real_time_switch`、`range_time`、`state`、`remarks` |
-
-未指定 `lock_id` 时，服务默认操作当前配置项所选择的门锁。
-
-获取动态密码示例：
-
-```yaml
-action: desmanlock.get_dynamic_password
-data: {}
-response_variable: desman_password
-```
-
-密码管理会直接修改云端数据。调用添加或更新服务前，请确认参数含义及有效时间格式与德施曼 App 当前使用的格式一致。
-
 ## 已知限制
 
 - 依赖德施曼云端和网络连接，无法离线工作。
-- 使用未公开的云端接口；德施曼更新服务后，集成可能需要同步适配。
 - 门锁状态根据最近一条开门/自动上锁记录推断，可能与门锁实时物理状态存在延迟或差异。
 - 蓝牙开锁要求 Home Assistant 主机（或支持主动连接的蓝牙代理）位于门锁通信范围内。
 - 成功建立 GATT 连接后，集成会保持并复用该连接，直到门锁主动断开或集成卸载。
 - 集成会读取门锁协议配置，并按 App 规则选择标准或 DH 密钥参数；ID2 安全芯片协议依赖厂商原生认证库，目前会明确返回不支持错误。
-- App 协议只提供主动开锁；调用上锁会刷新并确认自动上锁状态，尚未自动上锁时会返回错误。
+- App 协议只提供主动开锁；调用上锁会直接返回不支持错误。
 
 ## 故障排查
 
 - 添加集成失败时，先确认手机号、密码、区域 ID 正确，并确认德施曼 App 可正常登录。
 - 实体暂时不可用时，检查 Home Assistant 是否可以访问 `nyuwa.dsmxp.com`。
-- 某些传感器或图像无数据通常表示当前门锁型号或云端响应未提供相应字段。
 - 如需提交问题，请附上 Home Assistant 版本、集成版本、门锁型号和已脱敏的相关日志。请勿公开账号、密码、动态密码、数字密码、Token 或门锁 ID。
 
 ### 开启 Debug 日志
@@ -126,25 +80,6 @@ logger:
 ```
 
 问题排查结束后，建议删除以上配置或将日志级别恢复为 `info`，避免产生过多日志。
-
-### 独立测试脚本
-
-测试脚本会直接导入集成的 `api.py` 和 `bluetooth.py`。首次运行传入账号密码，登录成功后会将 token 缓存到仓库根目录的 `.desmanlock-token.json`（权限 `0600`，已加入 `.gitignore`）；后续运行无需重复传入密码。token 失效时，再提供一次密码即可自动刷新。
-
-建议使用 Home Assistant 的 Python 环境运行：
-
-```bash
-DESMAN_PHONE='手机号' DESMAN_PASSWORD='密码' \
-  /var/lib/hass/.venv/bin/python scripts/test_lock.py status
-
-# 唤醒门锁键盘后执行真实蓝牙开锁
-/var/lib/hass/.venv/bin/python scripts/test_lock.py unlock
-
-# 查看最新记录，确认门锁是否已自动上锁
-/var/lib/hass/.venv/bin/python scripts/test_lock.py lock
-```
-
-账号下有多把锁时追加 `--lock-id LOCK_ID`。脚本默认输出完整 debug 流程，但不会打印 token、密码或完整加密指令。
 
 ## 免责声明
 
