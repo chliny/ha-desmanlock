@@ -84,7 +84,7 @@ def _last_record(records: list[dict[str, Any]]) -> dict[str, Any]:
     details = latest_day.get("logDetails") or []
     if not details:
         return {"date": latest_day.get("logDate")}
-    latest_detail = details[-1]
+    latest_detail = details[0]
     result = dict(latest_detail)
     log_date = latest_day.get("logDate")
     log_time = latest_detail.get("logTime")
