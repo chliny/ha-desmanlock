@@ -107,20 +107,11 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
             await self.coordinator.async_request_refresh()
 
     async def async_lock(self, **kwargs: Any) -> None:
-        """Refresh state after the lock's automatic relock cycle."""
-        _LOGGER.debug("Home Assistant requested lock-state confirmation for %s", self.lock_id)
-        self._attr_is_locking = True
-        self.async_write_ha_state()
-        try:
-            await self.coordinator.async_request_refresh()
-            if self.is_locked is False:
-                raise HomeAssistantError(
-                    "This Desman model exposes no active lock command; "
-                    "close the door and wait for automatic locking"
-                )
-        finally:
-            self._attr_is_locking = False
-            self.async_write_ha_state()
+        """Reject locking because the app exposes no active lock command."""
+        raise HomeAssistantError(
+            "This Desman model exposes no active lock command; "
+            "close the door and wait for automatic locking"
+        )
 
 
 def _extract_user(content: str | None) -> str | None:
