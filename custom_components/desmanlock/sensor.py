@@ -79,6 +79,20 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         attributes_fn=lambda coordinator: _open_door_log_attributes(coordinator),
     ),
     DesmanSensorEntityDescription(
+        key="alarm_log",
+        translation_key="alarm_log",
+        icon="mdi:alert",
+        value_fn=lambda coordinator: _alarm_log_state(coordinator),
+        attributes_fn=lambda coordinator: _alarm_log_attributes(coordinator),
+    ),
+    DesmanSensorEntityDescription(
+        key="action_log",
+        translation_key="action_log",
+        icon="mdi:history",
+        value_fn=lambda coordinator: _action_log_state(coordinator),
+        attributes_fn=lambda coordinator: _action_log_attributes(coordinator),
+    ),
+    DesmanSensorEntityDescription(
         key="network_signal",
         translation_key="network_signal",
         value_fn=lambda coordinator: _first_value(
@@ -211,6 +225,52 @@ def _open_door_log_attributes(coordinator: DesmanLockDataUpdateCoordinator) -> d
         "user": _extract_user(record.get("content")),
         "content": record.get("content"),
         "log_type": record.get("logType"),
+        "log_type_int": record.get("logTypeInt"),
+        "log_event_type": record.get("logEventType"),
+        "time": record.get("datetime"),
+        "picture": record.get("pic"),
+        "video": record.get("video"),
+    }
+
+
+def _alarm_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
+    """Return a concise state for the latest alarm log."""
+    record = coordinator.data.get("last_alarm") or {}
+    return record.get("content") or record.get("logType")
+
+
+def _alarm_log_attributes(
+    coordinator: DesmanLockDataUpdateCoordinator,
+) -> dict[str, Any]:
+    """Return useful fields from the latest alarm log."""
+    record = coordinator.data.get("last_alarm") or {}
+    return {
+        "content": record.get("content"),
+        "log_type": record.get("logType"),
+        "log_type_int": record.get("logTypeInt"),
+        "log_event_type": record.get("logEventType"),
+        "time": record.get("datetime"),
+        "picture": record.get("pic"),
+        "video": record.get("video"),
+    }
+
+
+def _action_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
+    """Return a concise state for the latest action log."""
+    record = coordinator.data.get("last_action") or {}
+    return record.get("content") or record.get("logType")
+
+
+def _action_log_attributes(
+    coordinator: DesmanLockDataUpdateCoordinator,
+) -> dict[str, Any]:
+    """Return useful fields from the latest action log."""
+    record = coordinator.data.get("last_action") or {}
+    return {
+        "content": record.get("content"),
+        "log_type": record.get("logType"),
+        "log_type_int": record.get("logTypeInt"),
+        "log_event_type": record.get("logEventType"),
         "time": record.get("datetime"),
         "picture": record.get("pic"),
         "video": record.get("video"),

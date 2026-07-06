@@ -28,6 +28,11 @@ ATTR_OPEN_USER = "open_user"
 ATTR_OPEN_MEDIA_PIC = "open_pic"
 ATTR_OPEN_MEDIA_VIDEO = "open_video"
 
+# RecordType values mapped to DataLockOpenLockDetail.logTypeInt in the app.
+LOG_TYPE_OPEN_DOOR = 1
+LOG_TYPE_ALARM = 2
+LOG_TYPE_ACTION = 3
+
 SERVICE_GET_DYNAMIC_PASSWORD = "get_dynamic_password"
 SERVICE_GET_DIGIT_PASSWORDS = "get_digit_passwords"
 SERVICE_ADD_DIGIT_PASSWORD = "add_digit_password"

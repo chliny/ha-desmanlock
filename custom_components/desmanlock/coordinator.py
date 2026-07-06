@@ -10,7 +10,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import DesmanLockApiClient, DesmanLockApiError
 from .bluetooth import DesmanBluetoothLock
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    LOG_TYPE_ACTION,
+    LOG_TYPE_ALARM,
+    LOG_TYPE_OPEN_DOOR,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +61,8 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "detail_config": detail_config,
                 "records": records,
                 "last_open": _last_open_record(records),
+                "last_alarm": _last_alarm_record(records),
+                "last_action": _last_action_record(records),
             }
         except DesmanLockApiError as err:
             raise UpdateFailed(str(err)) from err
@@ -73,25 +81,34 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
 def _last_open_record(records: list[dict[str, Any]]) -> dict[str, Any]:
     """Flatten latest open door record detail."""
-    return _last_record(records)
+    return _last_record(records, LOG_TYPE_OPEN_DOOR)
 
 
-def _last_record(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Flatten the latest grouped record detail."""
-    if not records:
-        return {}
-    latest_day = records[0] or {}
-    details = latest_day.get("logDetails") or []
-    if not details:
-        return {"date": latest_day.get("logDate")}
-    latest_detail = details[0]
-    result = dict(latest_detail)
-    log_date = latest_day.get("logDate")
-    log_time = latest_detail.get("logTime")
-    if log_date and log_time:
-        result["datetime"] = f"{log_date} {log_time}"
-    elif log_date:
-        result["datetime"] = log_date
-    result["dayTag"] = latest_day.get("dayTag")
-    result["weekTag"] = latest_day.get("weekTag")
-    return result
+def _last_alarm_record(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Flatten latest alarm record detail."""
+    return _last_record(records, LOG_TYPE_ALARM)
+
+
+def _last_action_record(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Flatten latest action record detail."""
+    return _last_record(records, LOG_TYPE_ACTION)
+
+
+def _last_record(records: list[dict[str, Any]], log_type_int: int) -> dict[str, Any]:
+    """Return the first matching detail from the newest-first API response."""
+    for day in records:
+        day = day or {}
+        for detail in day.get("logDetails") or []:
+            if str(detail.get("logTypeInt")) != str(log_type_int):
+                continue
+            result = dict(detail)
+            log_date = day.get("logDate")
+            log_time = detail.get("logTime")
+            if log_date and log_time:
+                result["datetime"] = f"{log_date} {log_time}"
+            elif log_date:
+                result["datetime"] = log_date
+            result["dayTag"] = day.get("dayTag")
+            result["weekTag"] = day.get("weekTag")
+            return result
+    return {}

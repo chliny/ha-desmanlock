@@ -33,6 +33,8 @@
       "last_open_mode": {"name": "最近开门方式"},
       "last_open_time": {"name": "最近开门时间"},
       "open_door_log": {"name": "最近开门日志"},
+      "alarm_log": {"name": "最近告警日志"},
+      "action_log": {"name": "最近操作日志"},
       "network_signal": {"name": "网络信号"},
       "wifi_ssid": {"name": "Wi-Fi SSID"},
       "wifi_state": {"name": "Wi-Fi 状态"},
