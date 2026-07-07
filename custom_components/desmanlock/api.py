@@ -11,7 +11,13 @@ from uuid import uuid4
 
 import requests
 
-from .const import BASE_URL, DEFAULT_REGION_ID, USER_AGENT
+from .const import (
+    APP_VERSION,
+    APP_VERSION_CODE,
+    BASE_URL,
+    DEFAULT_REGION_ID,
+    USER_AGENT,
+)
 
 REQUEST_TIMEOUT = 25
 
@@ -52,9 +58,14 @@ class DesmanLockApiClient:
             "User-Agent": USER_AGENT,
             "Accept": "*/*",
             "Accept-Language": "zh-Hans-CN;q=1",
+            "appVersion": APP_VERSION,
+            "appVersionCode": APP_VERSION_CODE,
+            "phoneType": "Android",
+            "clientType": "ANDROID",
             "regionId": self.region_id,
             "language": "zh-Hans",
             "requestId": str(uuid4()),
+            "type": "",
         }
         if auth and self.token:
             headers["token"] = self.token
@@ -111,7 +122,11 @@ class DesmanLockApiClient:
         data = self._request(
             "POST",
             "/nyuwa/login/passWord",
-            data={"userPhone": self.phone, "passWord2": password_md5},
+            data={
+                "userPhone": self.phone,
+                "passWord2": password_md5,
+                "regionCode": self.region_id,
+            },
             auth=False,
         )
         if not data:
@@ -187,21 +202,18 @@ class DesmanLockApiClient:
         self,
         lock_id: str,
         *,
+        record_type: int,
         page_number: int = 1,
         page_size: int = 5,
-        record_type: int | None = 1,
     ) -> list[dict[str, Any]]:
         """Return open door records."""
         params: dict[str, Any] = {
             "lockId": lock_id,
             "pageNumber": str(page_number),
             "pageSize": str(page_size),
+            "type": str(record_type),
         }
-        path = "/nyuwa/dc/lock/log/open/door"
-        if record_type is not None:
-            params["type"] = str(record_type)
-            path = "/nyuwa/dc/lock/log/open/door/type"
-        return self.get(path, params) or []
+        return self.get("/nyuwa/dc/lock/log/open/door/type", params) or []
 
     def dynamic_password(self, lock_id: str) -> Any:
         """Create a dynamic password."""
@@ -437,9 +449,9 @@ class DesmanLockApiClient:
         self,
         lock_id: str,
         *,
+        record_type: int,
         page_number: int = 1,
         page_size: int = 5,
-        record_type: int | None = 1,
     ) -> list[dict[str, Any]]:
         """Async open door records wrapper."""
         return await asyncio.to_thread(

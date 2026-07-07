@@ -16,7 +16,9 @@ DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
 PLATFORMS = ["lock", "sensor"]
 
 BASE_URL = "https://nyuwa.dsmxp.com"
-USER_AGENT = "desmanlock/6.5.7"
+APP_VERSION = "6.14.0"
+APP_VERSION_CODE = "20828"
+USER_AGENT = f"desmanlock/{APP_VERSION}"
 
 ATTR_LOCK_ID = "lock_id"
 ATTR_LOCK_MAC = "lock_mac"
