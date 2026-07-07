@@ -39,19 +39,45 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch latest data from DSM cloud."""
         try:
+            previous_data = self.data or {}
             locks = await self.api.async_lock_list()
+            locks = locks or previous_data.get("locks", [])
             selected_lock = self._select_lock(locks)
-            lock_id = str(selected_lock.get("lockId") or self.lock_id or "")
+            selected_lock = selected_lock or previous_data.get("lock", {})
+            lock_id = str(
+                selected_lock.get("lockId")
+                or self.lock_id
+                or previous_data.get("lock_id")
+                or ""
+            )
             detail: dict[str, Any] = {}
             detail_config: dict[str, Any] = {}
-            records: list[dict[str, Any]] = []
+            open_records: list[dict[str, Any]] = []
+            alarm_records: list[dict[str, Any]] = []
+            action_records: list[dict[str, Any]] = []
             if lock_id:
                 detail = await self.api.async_lock_detail(lock_id)
                 try:
                     detail_config = await self.api.async_lock_detail_and_config(lock_id)
                 except DesmanLockApiError as err:
                     _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
-                records = await self.api.async_open_door_records(lock_id)
+                open_records = await self.api.async_open_door_records(
+                    lock_id,
+                    record_type=LOG_TYPE_OPEN_DOOR,
+                )
+                alarm_records = await self.api.async_open_door_records(
+                    lock_id,
+                    record_type=LOG_TYPE_ALARM,
+                )
+                action_records = await self.api.async_open_door_records(
+                    lock_id,
+                    record_type=LOG_TYPE_ACTION,
+                )
+            detail = detail or previous_data.get("detail", {})
+            detail_config = detail_config or previous_data.get("detail_config", {})
+            last_open = _last_open_record(open_records) or previous_data.get("last_open") or {}
+            last_alarm = _last_alarm_record(alarm_records) or previous_data.get("last_alarm") or {}
+            last_action = _last_action_record(action_records) or previous_data.get("last_action") or {}
             self.bluetooth.update_data(selected_lock, detail, detail_config)
             return {
                 "locks": locks,
@@ -59,10 +85,10 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "lock_id": lock_id,
                 "detail": detail,
                 "detail_config": detail_config,
-                "records": records,
-                "last_open": _last_open_record(records),
-                "last_alarm": _last_alarm_record(records),
-                "last_action": _last_action_record(records),
+                "records": open_records or previous_data.get("records", []),
+                "last_open": last_open,
+                "last_alarm": last_alarm,
+                "last_action": last_action,
             }
         except DesmanLockApiError as err:
             raise UpdateFailed(str(err)) from err

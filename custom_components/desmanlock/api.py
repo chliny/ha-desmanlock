@@ -433,9 +433,22 @@ class DesmanLockApiClient:
             self.lock_protocol_config, lock_mac, meter_type, firmware_version
         )
 
-    async def async_open_door_records(self, lock_id: str) -> list[dict[str, Any]]:
+    async def async_open_door_records(
+        self,
+        lock_id: str,
+        *,
+        page_number: int = 1,
+        page_size: int = 5,
+        record_type: int | None = 1,
+    ) -> list[dict[str, Any]]:
         """Async open door records wrapper."""
-        return await asyncio.to_thread(self.open_door_records, lock_id)
+        return await asyncio.to_thread(
+            self.open_door_records,
+            lock_id,
+            page_number=page_number,
+            page_size=page_size,
+            record_type=record_type,
+        )
 
     async def async_dynamic_password(self, lock_id: str) -> Any:
         """Async dynamic password wrapper."""
