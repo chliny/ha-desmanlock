@@ -16,7 +16,7 @@ DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
 PLATFORMS = ["lock", "sensor"]
 
 BASE_URL = "https://nyuwa.dsmxp.com"
-USER_AGENT = "desmanlock/6.5.7 (Home Assistant)"
+USER_AGENT = "desmanlock/6.5.7"
 
 ATTR_LOCK_ID = "lock_id"
 ATTR_LOCK_MAC = "lock_mac"
