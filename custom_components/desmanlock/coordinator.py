@@ -41,9 +41,9 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             previous_data = self.data or {}
             locks = await self.api.async_lock_list()
-            locks = locks or previous_data.get("locks", [])
+            locks = locks or previous_data.get("locks") or []
             selected_lock = self._select_lock(locks)
-            selected_lock = selected_lock or previous_data.get("lock", {})
+            selected_lock = selected_lock or previous_data.get("lock") or {}
             lock_id = str(
                 selected_lock.get("lockId")
                 or self.lock_id
@@ -73,8 +73,8 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     lock_id,
                     record_type=LOG_TYPE_ACTION,
                 )
-            detail = detail or previous_data.get("detail", {})
-            detail_config = detail_config or previous_data.get("detail_config", {})
+            detail = detail or previous_data.get("detail") or {}
+            detail_config = detail_config or previous_data.get("detail_config") or {}
             last_open = _last_open_record(open_records) or previous_data.get("last_open") or {}
             last_alarm = _last_alarm_record(alarm_records) or previous_data.get("last_alarm") or {}
             last_action = _last_action_record(action_records) or previous_data.get("last_action") or {}
@@ -85,7 +85,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "lock_id": lock_id,
                 "detail": detail,
                 "detail_config": detail_config,
-                "records": open_records or previous_data.get("records", []),
+                "records": open_records or previous_data.get("records") or [],
                 "last_open": last_open,
                 "last_alarm": last_alarm,
                 "last_action": last_action,
