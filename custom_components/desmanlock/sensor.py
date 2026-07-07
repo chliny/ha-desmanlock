@@ -215,23 +215,12 @@ def _detail_and_config(coordinator: DesmanLockDataUpdateCoordinator) -> dict[str
 
 def _open_door_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
     """Return a concise state for the latest open-door log."""
-    record = coordinator.data.get("last_open") or {}
-    return record.get("content") or record.get("logType")
+    return _log_record_state(coordinator, "last_open")
 
 
 def _open_door_log_attributes(coordinator: DesmanLockDataUpdateCoordinator) -> dict[str, Any]:
     """Return useful fields from the latest open-door log."""
-    record = coordinator.data.get("last_open") or {}
-    return {
-        "user": extract_open_user(record.get("content")),
-        "content": record.get("content"),
-        "log_type": record.get("logType"),
-        "log_type_int": record.get("logTypeInt"),
-        "log_event_type": record.get("logEventType"),
-        "time": record.get("datetime"),
-        "picture": record.get("pic"),
-        "video": record.get("video"),
-    }
+    return _log_record_attributes(coordinator, "last_open", include_user=True)
 
 
 def _last_open_user_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
@@ -249,38 +238,46 @@ def _last_open_user_state(coordinator: DesmanLockDataUpdateCoordinator) -> str |
 
 def _alarm_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
     """Return a concise state for the latest alarm log."""
-    record = coordinator.data.get("last_alarm") or {}
-    return record.get("content") or record.get("logType")
+    return _log_record_state(coordinator, "last_alarm")
 
 
 def _alarm_log_attributes(
     coordinator: DesmanLockDataUpdateCoordinator,
 ) -> dict[str, Any]:
     """Return useful fields from the latest alarm log."""
-    record = coordinator.data.get("last_alarm") or {}
-    return {
-        "content": record.get("content"),
-        "log_type": record.get("logType"),
-        "log_type_int": record.get("logTypeInt"),
-        "log_event_type": record.get("logEventType"),
-        "time": record.get("datetime"),
-        "picture": record.get("pic"),
-        "video": record.get("video"),
-    }
+    return _log_record_attributes(coordinator, "last_alarm")
 
 
 def _action_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
     """Return a concise state for the latest action log."""
-    record = coordinator.data.get("last_action") or {}
-    return record.get("content") or record.get("logType")
+    return _log_record_state(coordinator, "last_action")
 
 
 def _action_log_attributes(
     coordinator: DesmanLockDataUpdateCoordinator,
 ) -> dict[str, Any]:
     """Return useful fields from the latest action log."""
-    record = coordinator.data.get("last_action") or {}
-    return {
+    return _log_record_attributes(coordinator, "last_action")
+
+
+def _log_record_state(
+    coordinator: DesmanLockDataUpdateCoordinator,
+    key: str,
+) -> str | None:
+    """Return a concise state for a latest log record."""
+    record = coordinator.data.get(key) or {}
+    return record.get("content") or record.get("logType")
+
+
+def _log_record_attributes(
+    coordinator: DesmanLockDataUpdateCoordinator,
+    key: str,
+    *,
+    include_user: bool = False,
+) -> dict[str, Any]:
+    """Return common useful fields from a latest log record."""
+    record = coordinator.data.get(key) or {}
+    attributes = {
         "content": record.get("content"),
         "log_type": record.get("logType"),
         "log_type_int": record.get("logTypeInt"),
@@ -289,3 +286,6 @@ def _action_log_attributes(
         "picture": record.get("pic"),
         "video": record.get("video"),
     }
+    if include_user:
+        attributes["user"] = extract_open_user(record.get("content"))
+    return attributes
