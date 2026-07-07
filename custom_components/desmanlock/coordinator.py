@@ -52,32 +52,22 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             detail: dict[str, Any] = {}
             detail_config: dict[str, Any] = {}
-            open_records: list[dict[str, Any]] = []
-            alarm_records: list[dict[str, Any]] = []
-            action_records: list[dict[str, Any]] = []
+            records: list[dict[str, Any]] = []
             if lock_id:
                 detail = await self.api.async_lock_detail(lock_id)
                 try:
                     detail_config = await self.api.async_lock_detail_and_config(lock_id)
                 except DesmanLockApiError as err:
                     _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
-                open_records = await self.api.async_open_door_records(
+                records = await self.api.async_open_door_records(
                     lock_id,
-                    record_type=LOG_TYPE_OPEN_DOOR,
-                )
-                alarm_records = await self.api.async_open_door_records(
-                    lock_id,
-                    record_type=LOG_TYPE_ALARM,
-                )
-                action_records = await self.api.async_open_door_records(
-                    lock_id,
-                    record_type=LOG_TYPE_ACTION,
+                    record_type=None,
                 )
             detail = detail or previous_data.get("detail") or {}
             detail_config = detail_config or previous_data.get("detail_config") or {}
-            last_open = _last_open_record(open_records) or previous_data.get("last_open") or {}
-            last_alarm = _last_alarm_record(alarm_records) or previous_data.get("last_alarm") or {}
-            last_action = _last_action_record(action_records) or previous_data.get("last_action") or {}
+            last_open = _last_open_record(records) or previous_data.get("last_open") or {}
+            last_alarm = _last_alarm_record(records) or previous_data.get("last_alarm") or {}
+            last_action = _last_action_record(records) or previous_data.get("last_action") or {}
             self.bluetooth.update_data(selected_lock, detail, detail_config)
             return {
                 "locks": locks,
@@ -85,7 +75,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "lock_id": lock_id,
                 "detail": detail,
                 "detail_config": detail_config,
-                "records": open_records or previous_data.get("records") or [],
+                "records": records or previous_data.get("records") or [],
                 "last_open": last_open,
                 "last_alarm": last_alarm,
                 "last_action": last_action,
