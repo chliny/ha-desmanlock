@@ -25,8 +25,6 @@ ATTR_OPEN_CONTENT = "open_content"
 ATTR_OPEN_LOG_TYPE = "open_log_type"
 ATTR_OPEN_TIME = "open_time"
 ATTR_OPEN_USER = "open_user"
-ATTR_OPEN_MEDIA_PIC = "open_pic"
-ATTR_OPEN_MEDIA_VIDEO = "open_video"
 
 # RecordType values mapped to DataLockOpenLockDetail.logTypeInt in the app.
 LOG_TYPE_OPEN_DOOR = 1

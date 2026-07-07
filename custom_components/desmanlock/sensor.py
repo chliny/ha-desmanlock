@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
-from .helpers import extract_open_user
+from .helpers import extract_open_user, latest_open_user
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -225,15 +225,7 @@ def _open_door_log_attributes(coordinator: DesmanLockDataUpdateCoordinator) -> d
 
 def _last_open_user_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
     """Return the latest opener by scanning open-door records newest-first."""
-    for day in coordinator.data.get("records") or []:
-        day = day or {}
-        for detail in day.get("logDetails") or []:
-            if str(detail.get("logTypeInt")) != "1":
-                continue
-            user = extract_open_user(detail.get("content"))
-            if user:
-                return user
-    return None
+    return latest_open_user(coordinator.data.get("records"))
 
 
 def _alarm_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:

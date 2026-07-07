@@ -17,14 +17,12 @@ from .const import (
     ATTR_LOCK_TYPE,
     ATTR_OPEN_CONTENT,
     ATTR_OPEN_LOG_TYPE,
-    ATTR_OPEN_MEDIA_PIC,
-    ATTR_OPEN_MEDIA_VIDEO,
     ATTR_OPEN_TIME,
     ATTR_OPEN_USER,
 )
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
-from .helpers import AUTO_LOCK_TEXT, extract_open_user
+from .helpers import AUTO_LOCK_TEXT, latest_open_user
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +41,7 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
     """Desman cloud lock entity."""
 
     _attr_name = None
+    _attr_translation_key = "lock"
 
     def __init__(self, coordinator: DesmanLockDataUpdateCoordinator) -> None:
         """Initialize lock entity."""
@@ -64,7 +63,7 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
     @property
     def changed_by(self) -> str | None:
         """Return latest opener."""
-        return extract_open_user(self.last_open_data.get("content"))
+        return latest_open_user(self.coordinator.data.get("records"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -72,16 +71,15 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
         lock = self.lock_data
         detail = self.detail_data
         last_open = self.last_open_data
+        open_user = latest_open_user(self.coordinator.data.get("records"))
         return {
             ATTR_LOCK_ID: self.lock_id,
             ATTR_LOCK_MAC: detail.get("lockMac") or lock.get("lockMac"),
             ATTR_LOCK_TYPE: lock.get("lockType"),
-            ATTR_OPEN_USER: extract_open_user(last_open.get("content")),
+            ATTR_OPEN_USER: open_user,
             ATTR_OPEN_CONTENT: last_open.get("content"),
             ATTR_OPEN_LOG_TYPE: last_open.get("logType"),
             ATTR_OPEN_TIME: last_open.get("datetime"),
-            ATTR_OPEN_MEDIA_PIC: last_open.get("pic"),
-            ATTR_OPEN_MEDIA_VIDEO: last_open.get("video"),
             "battery_update_time": detail.get("batteryUpdateTime") or lock.get("batteryUpdateTime"),
             "battery_status": detail.get("batteryStatus"),
             "cateye_battery": detail.get("cateyeBattery"),
