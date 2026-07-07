@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
+from .helpers import extract_open_user
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -59,7 +60,7 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
     DesmanSensorEntityDescription(
         key="last_open_user",
         translation_key="last_open_user",
-        value_fn=lambda coordinator: _extract_user((coordinator.data.get("last_open", {}) or {}).get("content")),
+        value_fn=lambda coordinator: _last_open_user_state(coordinator),
     ),
     DesmanSensorEntityDescription(
         key="last_open_mode",
@@ -222,7 +223,7 @@ def _open_door_log_attributes(coordinator: DesmanLockDataUpdateCoordinator) -> d
     """Return useful fields from the latest open-door log."""
     record = coordinator.data.get("last_open") or {}
     return {
-        "user": _extract_user(record.get("content")),
+        "user": extract_open_user(record.get("content")),
         "content": record.get("content"),
         "log_type": record.get("logType"),
         "log_type_int": record.get("logTypeInt"),
@@ -231,6 +232,19 @@ def _open_door_log_attributes(coordinator: DesmanLockDataUpdateCoordinator) -> d
         "picture": record.get("pic"),
         "video": record.get("video"),
     }
+
+
+def _last_open_user_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
+    """Return the latest opener by scanning open-door records newest-first."""
+    for day in coordinator.data.get("records") or []:
+        day = day or {}
+        for detail in day.get("logDetails") or []:
+            if str(detail.get("logTypeInt")) != "1":
+                continue
+            user = extract_open_user(detail.get("content"))
+            if user:
+                return user
+    return None
 
 
 def _alarm_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
@@ -275,14 +289,3 @@ def _action_log_attributes(
         "picture": record.get("pic"),
         "video": record.get("video"),
     }
-
-
-def _extract_user(content: str | None) -> str | None:
-    """Extract opener name from DSM log content."""
-    if not content or content == "自动上锁":
-        return None
-    if content == "密码开锁":
-        return content
-    if "【" in content and "】" in content:
-        return content.split("【", 1)[1].split("】", 1)[0]
-    return content

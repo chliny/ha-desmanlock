@@ -24,8 +24,7 @@ from .const import (
 )
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
-
-AUTO_LOCK_TEXT = "自动上锁"
+from .helpers import AUTO_LOCK_TEXT, extract_open_user
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +64,7 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
     @property
     def changed_by(self) -> str | None:
         """Return latest opener."""
-        return _extract_user(self.last_open_data.get("content"))
+        return extract_open_user(self.last_open_data.get("content"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -77,7 +76,7 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
             ATTR_LOCK_ID: self.lock_id,
             ATTR_LOCK_MAC: detail.get("lockMac") or lock.get("lockMac"),
             ATTR_LOCK_TYPE: lock.get("lockType"),
-            ATTR_OPEN_USER: _extract_user(last_open.get("content")),
+            ATTR_OPEN_USER: extract_open_user(last_open.get("content")),
             ATTR_OPEN_CONTENT: last_open.get("content"),
             ATTR_OPEN_LOG_TYPE: last_open.get("logType"),
             ATTR_OPEN_TIME: last_open.get("datetime"),
@@ -112,14 +111,3 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
             "This Desman model exposes no active lock command; "
             "close the door and wait for automatic locking"
         )
-
-
-def _extract_user(content: str | None) -> str | None:
-    """Extract opener name from DSM log content."""
-    if not content or content == AUTO_LOCK_TEXT:
-        return None
-    if content == "密码开锁":
-        return content
-    if "【" in content and "】" in content:
-        return content.split("【", 1)[1].split("】", 1)[0]
-    return content
