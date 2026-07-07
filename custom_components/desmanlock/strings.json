@@ -25,6 +25,25 @@
     }
   },
   "entity": {
+    "lock": {
+      "lock": {
+        "state_attributes": {
+          "lock_id": {"name": "Lock ID"},
+          "lock_mac": {"name": "Lock MAC"},
+          "lock_type": {"name": "Lock type"},
+          "open_user": {"name": "Last unlock user"},
+          "open_content": {"name": "Last unlock content"},
+          "open_log_type": {"name": "Last unlock method"},
+          "open_time": {"name": "Last unlock time"},
+          "battery_update_time": {"name": "Battery update time"},
+          "battery_status": {"name": "Battery status"},
+          "cateye_battery": {"name": "Peephole camera battery"},
+          "wifi_state": {"name": "Wi-Fi status"},
+          "network_signal": {"name": "Network signal"},
+          "iot_id": {"name": "IoT ID"}
+        }
+      }
+    },
     "sensor": {
       "battery_percentage": {"name": "Battery level"},
       "cateye_battery_percentage": {"name": "Peephole camera battery level"},

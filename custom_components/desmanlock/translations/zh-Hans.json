@@ -25,6 +25,25 @@
     }
   },
   "entity": {
+    "lock": {
+      "lock": {
+        "state_attributes": {
+          "lock_id": {"name": "门锁 ID"},
+          "lock_mac": {"name": "门锁 MAC"},
+          "lock_type": {"name": "门锁类型"},
+          "open_user": {"name": "最近开门用户"},
+          "open_content": {"name": "最近开门内容"},
+          "open_log_type": {"name": "最近开门方式"},
+          "open_time": {"name": "最近开门时间"},
+          "battery_update_time": {"name": "电池更新时间"},
+          "battery_status": {"name": "电池状态"},
+          "cateye_battery": {"name": "猫眼电量"},
+          "wifi_state": {"name": "Wi-Fi 状态"},
+          "network_signal": {"name": "网络信号"},
+          "iot_id": {"name": "IoT ID"}
+        }
+      }
+    },
     "sensor": {
       "battery_percentage": {"name": "电池电量"},
       "cateye_battery_percentage": {"name": "猫眼电量"},
