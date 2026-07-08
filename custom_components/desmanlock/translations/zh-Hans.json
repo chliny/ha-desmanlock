@@ -7,7 +7,8 @@
         "data": {
           "phone": "手机号",
           "password": "密码",
-          "region_id": "区域 ID"
+          "region_id": "区域 ID",
+          "scan_interval": "扫描间隔（秒）"
         }
       },
       "lock": {
@@ -22,6 +23,20 @@
     },
     "abort": {
       "already_configured": "该门锁已配置"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "德施曼智能锁选项",
+        "data": {
+          "password": "密码",
+          "scan_interval": "扫描间隔（秒）"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接或登录失败"
     }
   },
   "entity": {

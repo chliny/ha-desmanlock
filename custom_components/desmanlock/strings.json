@@ -7,7 +7,8 @@
         "data": {
           "phone": "Phone number",
           "password": "Password",
-          "region_id": "Region ID"
+          "region_id": "Region ID",
+          "scan_interval": "Scan interval (seconds)"
         }
       },
       "lock": {
@@ -22,6 +23,20 @@
     },
     "abort": {
       "already_configured": "This lock is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Desman Lock options",
+        "data": {
+          "password": "Password",
+          "scan_interval": "Scan interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect or sign in"
     }
   },
   "entity": {

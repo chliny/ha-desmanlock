@@ -8,7 +8,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.const import CONF_PASSWORD
+from homeassistant.const import CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
@@ -20,6 +20,7 @@ from .const import (
     CONF_PHONE,
     CONF_REGION_ID,
     DEFAULT_REGION_ID,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     PLATFORMS,
     SERVICE_ADD_DIGIT_PASSWORD,
@@ -44,12 +45,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -> bool:
     """Set up Desman Lock from a config entry."""
+    config = {**entry.data, **entry.options}
     api = DesmanLockApiClient(
-        phone=entry.data[CONF_PHONE],
-        password=entry.data[CONF_PASSWORD],
-        region_id=entry.data.get(CONF_REGION_ID, DEFAULT_REGION_ID),
+        phone=config[CONF_PHONE],
+        password=config[CONF_PASSWORD],
+        region_id=config.get(CONF_REGION_ID, DEFAULT_REGION_ID),
     )
-    coordinator = DesmanLockDataUpdateCoordinator(hass, api, entry.data.get(CONF_LOCK_ID))
+    coordinator = DesmanLockDataUpdateCoordinator(
+        hass,
+        api,
+        config.get(CONF_LOCK_ID),
+        int(config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
+    )
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

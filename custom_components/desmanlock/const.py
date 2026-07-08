@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-
 DOMAIN = "desmanlock"
 
 CONF_PHONE = "phone"
@@ -11,7 +9,7 @@ CONF_LOCK_ID = "lock_id"
 CONF_REGION_ID = "region_id"
 
 DEFAULT_REGION_ID = "1"
-DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
+DEFAULT_SCAN_INTERVAL = 300
 
 PLATFORMS = ["lock", "sensor"]
 

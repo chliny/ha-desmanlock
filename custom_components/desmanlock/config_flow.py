@@ -4,15 +4,29 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
+from homeassistant.const import CONF_PASSWORD, CONF_SCAN_INTERVAL
+from homeassistant.core import callback
+from homeassistant.helpers import selector
 import voluptuous as vol
 
 from .api import DesmanLockApiClient, DesmanLockApiError
-from .const import CONF_LOCK_ID, CONF_PHONE, CONF_REGION_ID, DEFAULT_REGION_ID, DOMAIN
+from .const import (
+    CONF_LOCK_ID,
+    CONF_PHONE,
+    CONF_REGION_ID,
+    DEFAULT_REGION_ID,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 
 
-class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class DesmanLockConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Desman Lock."""
 
     VERSION = 1
@@ -22,10 +36,15 @@ class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._user_input: dict[str, Any] = {}
         self._locks: list[dict[str, Any]] = []
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle account input."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            user_input[CONF_SCAN_INTERVAL] = int(
+                user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            )
             api = DesmanLockApiClient(
                 phone=user_input[CONF_PHONE],
                 password=user_input[CONF_PASSWORD],
@@ -49,17 +68,13 @@ class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_PHONE): str,
-                    vol.Required(CONF_PASSWORD): str,
-                    vol.Optional(CONF_REGION_ID, default=DEFAULT_REGION_ID): str,
-                }
-            ),
+            data_schema=_user_schema(user_input),
             errors=errors,
         )
 
-    async def async_step_lock(self, user_input: dict[str, Any] | None = None):
+    async def async_step_lock(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Select lock when account has multiple locks."""
         errors: dict[str, str] = {}
         locks = {
@@ -92,3 +107,97 @@ class DesmanLockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if str(lock.get("lockId")) == str(lock_id):
                 return lock.get("lockName") or "Desman Lock"
         return "Desman Lock"
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(_config_entry: ConfigEntry) -> DesmanLockOptionsFlow:
+        """Create the options flow."""
+        return DesmanLockOptionsFlow()
+
+
+class DesmanLockOptionsFlow(OptionsFlowWithReload):
+    """Handle Desman Lock options."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage integration options."""
+        errors: dict[str, str] = {}
+        current_config = {**self.config_entry.data, **self.config_entry.options}
+
+        if user_input is not None:
+            user_input[CONF_SCAN_INTERVAL] = int(
+                user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            )
+            if user_input[CONF_PASSWORD] != current_config[CONF_PASSWORD]:
+                api = DesmanLockApiClient(
+                    phone=current_config[CONF_PHONE],
+                    password=user_input[CONF_PASSWORD],
+                    region_id=current_config.get(CONF_REGION_ID, DEFAULT_REGION_ID),
+                )
+                try:
+                    await api.async_login()
+                except DesmanLockApiError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    return self.async_create_entry(title="", data=user_input)
+            else:
+                return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_options_schema(current_config),
+            errors=errors,
+        )
+
+
+def _password_selector() -> selector.TextSelector:
+    """Return a password selector."""
+    return selector.TextSelector(
+        selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+    )
+
+
+def _scan_interval_validator() -> vol.All:
+    """Return scan interval validator."""
+    return vol.All(vol.Coerce(int), vol.Range(min=1))
+
+
+def _user_schema(user_input: dict[str, Any] | None = None) -> vol.Schema:
+    """Return user step schema."""
+    defaults = user_input or {}
+    phone_key = (
+        vol.Required(CONF_PHONE, default=defaults[CONF_PHONE])
+        if CONF_PHONE in defaults
+        else vol.Required(CONF_PHONE)
+    )
+    return vol.Schema(
+        {
+            phone_key: str,
+            vol.Required(CONF_PASSWORD): _password_selector(),
+            vol.Optional(
+                CONF_REGION_ID,
+                default=defaults.get(CONF_REGION_ID, DEFAULT_REGION_ID),
+            ): str,
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            ): _scan_interval_validator(),
+        }
+    )
+
+
+def _options_schema(config: dict[str, Any]) -> vol.Schema:
+    """Return options schema."""
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_PASSWORD,
+                default=config.get(CONF_PASSWORD, ""),
+            ): _password_selector(),
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            ): _scan_interval_validator(),
+        }
+    )

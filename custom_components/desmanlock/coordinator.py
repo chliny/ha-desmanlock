@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -11,7 +12,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import DesmanLockApiClient, DesmanLockApiError
 from .bluetooth import DesmanBluetoothLock
 from .const import (
-    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOG_TYPE_ACTION,
     LOG_TYPE_ALARM,
@@ -24,13 +24,19 @@ _LOGGER = logging.getLogger(__name__)
 class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Desman Lock data update coordinator."""
 
-    def __init__(self, hass: HomeAssistant, api: DesmanLockApiClient, lock_id: str | None) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: DesmanLockApiClient,
+        lock_id: str | None,
+        scan_interval: int,
+    ) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=DEFAULT_SCAN_INTERVAL,
+            update_interval=timedelta(seconds=scan_interval),
         )
         self.api = api
         self.lock_id = lock_id
