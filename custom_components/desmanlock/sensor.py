@@ -61,11 +61,13 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         key="last_open_user",
         translation_key="last_open_user",
         value_fn=lambda coordinator: _last_open_user_state(coordinator),
+        attributes_fn=lambda coordinator: _last_open_record_attributes(coordinator),
     ),
     DesmanSensorEntityDescription(
         key="last_open_mode",
         translation_key="last_open_mode",
         value_fn=lambda coordinator: (coordinator.data.get("last_open", {}) or {}).get("logType"),
+        attributes_fn=lambda coordinator: _last_open_record_attributes(coordinator),
     ),
     DesmanSensorEntityDescription(
         key="last_open_time",
@@ -228,6 +230,14 @@ def _last_open_user_state(coordinator: DesmanLockDataUpdateCoordinator) -> str |
     return latest_open_user(coordinator.data.get("records"))
 
 
+def _last_open_record_attributes(
+    coordinator: DesmanLockDataUpdateCoordinator,
+) -> dict[str, Any]:
+    """Return log time from the latest open-door record."""
+    record = coordinator.data.get("last_open") or {}
+    return {"logtime": record.get("datetime")}
+
+
 def _alarm_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
     """Return a concise state for the latest alarm log."""
     return _log_record_state(coordinator, "last_alarm")
@@ -274,6 +284,7 @@ def _log_record_attributes(
         "log_type": record.get("logType"),
         "log_type_int": record.get("logTypeInt"),
         "log_event_type": record.get("logEventType"),
+        "logtime": record.get("datetime"),
         "time": record.get("datetime"),
         "picture": record.get("pic"),
         "video": record.get("video"),
