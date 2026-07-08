@@ -63,12 +63,56 @@
       "battery_percentage": {"name": "电池电量"},
       "cateye_battery_percentage": {"name": "猫眼电量"},
       "battery_status": {"name": "电池状态"},
-      "last_open_user": {"name": "最近开门用户"},
-      "last_open_mode": {"name": "最近开门方式"},
+      "last_open_user": {
+        "name": "最近开门用户",
+        "state_attributes": {
+          "logtime": {"name": "日志时间"}
+        }
+      },
+      "last_open_mode": {
+        "name": "最近开门方式",
+        "state_attributes": {
+          "logtime": {"name": "日志时间"}
+        }
+      },
       "last_open_time": {"name": "最近开门时间"},
-      "open_door_log": {"name": "最近开门日志"},
-      "alarm_log": {"name": "最近告警日志"},
-      "action_log": {"name": "最近操作日志"},
+      "open_door_log": {
+        "name": "最近开门日志",
+        "state_attributes": {
+          "content": {"name": "内容"},
+          "log_type": {"name": "日志类型"},
+          "log_type_int": {"name": "日志类型 ID"},
+          "log_event_type": {"name": "日志事件类型"},
+          "time": {"name": "时间"},
+          "picture": {"name": "图片"},
+          "video": {"name": "视频"},
+          "user": {"name": "用户"}
+        }
+      },
+      "alarm_log": {
+        "name": "最近告警日志",
+        "state_attributes": {
+          "content": {"name": "内容"},
+          "log_type": {"name": "日志类型"},
+          "log_type_int": {"name": "日志类型 ID"},
+          "log_event_type": {"name": "日志事件类型"},
+          "time": {"name": "时间"},
+          "picture": {"name": "图片"},
+          "video": {"name": "视频"}
+        }
+      },
+      "action_log": {
+        "name": "最近操作日志",
+        "state_attributes": {
+          "content": {"name": "内容"},
+          "log_type": {"name": "日志类型"},
+          "log_type_int": {"name": "日志类型 ID"},
+          "log_event_type": {"name": "日志事件类型"},
+          "time": {"name": "时间"},
+          "picture": {"name": "图片"},
+          "video": {"name": "视频"}
+        }
+      },
       "network_signal": {"name": "网络信号"},
       "wifi_ssid": {"name": "Wi-Fi SSID"},
       "wifi_state": {"name": "Wi-Fi 状态"},

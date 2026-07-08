@@ -63,12 +63,56 @@
       "battery_percentage": {"name": "Battery level"},
       "cateye_battery_percentage": {"name": "Peephole camera battery level"},
       "battery_status": {"name": "Battery status"},
-      "last_open_user": {"name": "Last unlock user"},
-      "last_open_mode": {"name": "Last unlock method"},
+      "last_open_user": {
+        "name": "Last unlock user",
+        "state_attributes": {
+          "logtime": {"name": "Log time"}
+        }
+      },
+      "last_open_mode": {
+        "name": "Last unlock method",
+        "state_attributes": {
+          "logtime": {"name": "Log time"}
+        }
+      },
       "last_open_time": {"name": "Last unlock time"},
-      "open_door_log": {"name": "Latest unlock log"},
-      "alarm_log": {"name": "Latest alarm log"},
-      "action_log": {"name": "Latest action log"},
+      "open_door_log": {
+        "name": "Latest unlock log",
+        "state_attributes": {
+          "content": {"name": "Content"},
+          "log_type": {"name": "Log type"},
+          "log_type_int": {"name": "Log type ID"},
+          "log_event_type": {"name": "Log event type"},
+          "time": {"name": "Time"},
+          "picture": {"name": "Picture"},
+          "video": {"name": "Video"},
+          "user": {"name": "User"}
+        }
+      },
+      "alarm_log": {
+        "name": "Latest alarm log",
+        "state_attributes": {
+          "content": {"name": "Content"},
+          "log_type": {"name": "Log type"},
+          "log_type_int": {"name": "Log type ID"},
+          "log_event_type": {"name": "Log event type"},
+          "time": {"name": "Time"},
+          "picture": {"name": "Picture"},
+          "video": {"name": "Video"}
+        }
+      },
+      "action_log": {
+        "name": "Latest action log",
+        "state_attributes": {
+          "content": {"name": "Content"},
+          "log_type": {"name": "Log type"},
+          "log_type_int": {"name": "Log type ID"},
+          "log_event_type": {"name": "Log event type"},
+          "time": {"name": "Time"},
+          "picture": {"name": "Picture"},
+          "video": {"name": "Video"}
+        }
+      },
       "network_signal": {"name": "Network signal"},
       "wifi_ssid": {"name": "Wi-Fi SSID"},
       "wifi_state": {"name": "Wi-Fi status"},

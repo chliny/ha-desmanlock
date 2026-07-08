@@ -284,7 +284,6 @@ def _log_record_attributes(
         "log_type": record.get("logType"),
         "log_type_int": record.get("logTypeInt"),
         "log_event_type": record.get("logEventType"),
-        "logtime": record.get("datetime"),
         "time": record.get("datetime"),
         "picture": record.get("pic"),
         "video": record.get("video"),
