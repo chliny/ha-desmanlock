@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect or sign in"
+      "cannot_connect": "Unable to connect or sign in",
+      "no_locks": "No locks were found on this account"
     },
     "abort": {
       "already_configured": "This lock is already configured"

@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "cannot_connect": "无法连接或登录失败"
+      "cannot_connect": "无法连接或登录失败",
+      "no_locks": "该账号下未找到门锁"
     },
     "abort": {
       "already_configured": "该门锁已配置"

@@ -10,7 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -46,6 +46,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -> bool:
     """Set up Desman Lock from a config entry."""
     config = {**entry.data, **entry.options}
+    configured_lock_id = config[CONF_LOCK_ID]
+    if not configured_lock_id:
+        raise ConfigEntryError("Desman Lock config entry has no lock ID")
+    lock_id = str(configured_lock_id)
     api = DesmanLockApiClient(
         phone=config[CONF_PHONE],
         password=config[CONF_PASSWORD],
@@ -54,7 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -
     coordinator = DesmanLockDataUpdateCoordinator(
         hass,
         api,
-        config.get(CONF_LOCK_ID),
+        lock_id,
         int(config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
     )
     await coordinator.async_config_entry_first_refresh()

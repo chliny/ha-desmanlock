@@ -53,13 +53,25 @@ class DesmanLockConfigFlow(ConfigFlow, domain=DOMAIN):
             try:
                 await api.async_login()
                 self._locks = await api.async_lock_list()
+                self._locks = [
+                    lock
+                    for lock in self._locks
+                    if lock.get("lockId") not in (None, "")
+                ]
             except DesmanLockApiError:
                 errors["base"] = "cannot_connect"
             else:
                 self._user_input = user_input
+                if not self._locks:
+                    errors["base"] = "no_locks"
+                    return self.async_show_form(
+                        step_id="user",
+                        data_schema=_user_schema(user_input),
+                        errors=errors,
+                    )
                 if len(self._locks) > 1:
                     return await self.async_step_lock()
-                lock_id = str(self._locks[0].get("lockId")) if self._locks else ""
+                lock_id = str(self._locks[0]["lockId"])
                 await self._async_set_lock_unique_id(lock_id)
                 return self.async_create_entry(
                     title=self._entry_title(lock_id),

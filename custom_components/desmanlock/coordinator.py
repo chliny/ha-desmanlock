@@ -28,7 +28,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self,
         hass: HomeAssistant,
         api: DesmanLockApiClient,
-        lock_id: str | None,
+        lock_id: str,
         scan_interval: int,
     ) -> None:
         """Initialize coordinator."""
@@ -48,39 +48,41 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             previous_data = self.data or {}
             locks = await self.api.async_lock_list()
             locks = locks or previous_data.get("locks") or []
-            selected_lock = self._select_lock(locks)
-            selected_lock = selected_lock or previous_data.get("lock") or {}
-            lock_id = str(
-                selected_lock.get("lockId")
-                or self.lock_id
-                or previous_data.get("lock_id")
-                or ""
+            selected_lock = _merge_current_with_previous(
+                self._select_lock(locks),
+                previous_data.get("lock") or {},
             )
+            lock_id = self.lock_id
             detail: dict[str, Any] = {}
             detail_config: dict[str, Any] = {}
             open_records: list[dict[str, Any]] = []
             alarm_records: list[dict[str, Any]] = []
             action_records: list[dict[str, Any]] = []
-            if lock_id:
-                detail = await self.api.async_lock_detail(lock_id)
-                try:
-                    detail_config = await self.api.async_lock_detail_and_config(lock_id)
-                except DesmanLockApiError as err:
-                    _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
-                open_records = await self.api.async_open_door_records(
-                    lock_id,
-                    record_type=LOG_TYPE_OPEN_DOOR,
-                )
-                alarm_records = await self.api.async_open_door_records(
-                    lock_id,
-                    record_type=LOG_TYPE_ALARM,
-                )
-                action_records = await self.api.async_open_door_records(
-                    lock_id,
-                    record_type=LOG_TYPE_ACTION,
-                )
-            detail = detail or previous_data.get("detail") or {}
-            detail_config = detail_config or previous_data.get("detail_config") or {}
+            detail = await self.api.async_lock_detail(lock_id)
+            try:
+                detail_config = await self.api.async_lock_detail_and_config(lock_id)
+            except DesmanLockApiError as err:
+                _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
+            open_records = await self.api.async_open_door_records(
+                lock_id,
+                record_type=LOG_TYPE_OPEN_DOOR,
+            )
+            alarm_records = await self.api.async_open_door_records(
+                lock_id,
+                record_type=LOG_TYPE_ALARM,
+            )
+            action_records = await self.api.async_open_door_records(
+                lock_id,
+                record_type=LOG_TYPE_ACTION,
+            )
+            detail = _merge_current_with_previous(
+                detail,
+                previous_data.get("detail") or {},
+            )
+            detail_config = _merge_current_with_previous(
+                detail_config,
+                previous_data.get("detail_config") or {},
+            )
             last_open = _last_open_record(open_records) or previous_data.get("last_open") or {}
             last_alarm = _last_alarm_record(alarm_records) or previous_data.get("last_alarm") or {}
             last_action = _last_action_record(action_records) or previous_data.get("last_action") or {}
@@ -100,15 +102,31 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
 
     def _select_lock(self, locks: list[dict[str, Any]]) -> dict[str, Any]:
-        """Select configured lock or first lock."""
-        if not locks:
-            return {}
-        if not self.lock_id:
-            return locks[0]
+        """Select the configured lock."""
         for lock in locks:
             if str(lock.get("lockId")) == str(self.lock_id):
                 return lock
-        return locks[0]
+        return {}
+
+
+def _merge_current_with_previous(
+    current: dict[str, Any],
+    previous: dict[str, Any],
+) -> dict[str, Any]:
+    """Fill missing current fields from the previous successful payload."""
+    if not current:
+        return dict(previous)
+    if not previous:
+        return dict(current)
+
+    merged = dict(previous)
+    for key, value in current.items():
+        previous_value = previous.get(key)
+        if isinstance(value, dict) and isinstance(previous_value, dict):
+            merged[key] = _merge_current_with_previous(value, previous_value)
+        elif value not in (None, ""):
+            merged[key] = value
+    return merged
 
 
 def _last_open_record(records: list[dict[str, Any]]) -> dict[str, Any]:
