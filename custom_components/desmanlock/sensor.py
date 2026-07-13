@@ -12,6 +12,7 @@ from homeassistant.const import EntityCategory, PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
 from .helpers import extract_open_user, latest_open_user
@@ -182,7 +183,8 @@ class DesmanLockSensor(DesmanLockEntity, SensorEntity):
         """Initialize sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{self.lock_id}_{description.key}"
+        self._attr_unique_id = f"{DOMAIN}_{self.lock_id}_{description.key}"
+        self._desman_object_id_suffix = description.key
 
     @property
     def native_value(self) -> Any:
