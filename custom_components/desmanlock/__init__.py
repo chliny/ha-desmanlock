@@ -12,7 +12,9 @@ from homeassistant.const import CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import slugify
 
 from .api import DesmanLockApiClient
 from .const import (
@@ -64,6 +66,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant, entry: DesmanLockConfigEntry
+) -> bool:
+    """Migrate registered entities to their explicit entity IDs."""
+    if entry.version > 2:
+        return False
+
+    if entry.version == 1:
+        registry = er.async_get(hass)
+        unique_id_prefix = f"{DOMAIN}_{entry.data[CONF_LOCK_ID]}_"
+        for registry_entry in er.async_entries_for_config_entry(
+            registry, entry.entry_id
+        ):
+            if (
+                registry_entry.platform != DOMAIN
+                or not registry_entry.unique_id.startswith(unique_id_prefix)
+            ):
+                continue
+
+            new_entity_id = (
+                f"{registry_entry.domain}.{slugify(registry_entry.unique_id)}"
+            )
+            if registry_entry.entity_id == new_entity_id:
+                continue
+            if existing_entry := registry.async_get(new_entity_id):
+                _LOGGER.error(
+                    "Cannot migrate entity ID %s to %s because it is already used by %s",
+                    registry_entry.entity_id,
+                    new_entity_id,
+                    existing_entry.unique_id,
+                )
+                return False
+            registry.async_update_entity(
+                registry_entry.entity_id, new_entity_id=new_entity_id
+            )
+
+        hass.config_entries.async_update_entry(entry, version=2)
+
     return True
 
 

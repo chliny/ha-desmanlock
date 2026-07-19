@@ -29,7 +29,7 @@ from .const import (
 class DesmanLockConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Desman Lock."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize config flow."""
