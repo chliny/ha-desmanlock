@@ -1,8 +1,12 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   release-zip:
@@ -15,11 +19,15 @@ jobs:
           cd ${{ github.workspace }}/custom_components/desmanlock
           zip -r desmanlock.zip ./
 
-      - name: Upload zip to release
-        uses: svenstaro/upload-release-action@v2
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ github.workspace }}/custom_components/desmanlock/desmanlock.zip
-          asset_name: desmanlock.zip
-          tag: ${{ github.ref }}
-          overwrite: true
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ github.workspace }}/custom_components/desmanlock/desmanlock.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
