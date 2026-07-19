@@ -47,8 +47,8 @@ class DesmanCloudLock(DesmanLockEntity, LockEntity):
     def __init__(self, coordinator: DesmanLockDataUpdateCoordinator) -> None:
         """Initialize lock entity."""
         super().__init__(coordinator)
+        self.entity_id = f"lock.{DOMAIN}_{self.lock_id}_lock"
         self._attr_unique_id = f"{DOMAIN}_{self.lock_id}_lock"
-        self._desman_object_id_suffix = "lock"
 
     @property
     def is_locked(self) -> bool | None:

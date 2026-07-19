@@ -6,7 +6,6 @@ from typing import Any
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import slugify
 
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
@@ -41,16 +40,6 @@ class DesmanLockEntity(CoordinatorEntity[DesmanLockDataUpdateCoordinator]):
     def last_open_data(self) -> dict[str, Any]:
         """Return latest open record."""
         return self.coordinator.data.get("last_open") or {}
-
-    @property
-    def suggested_object_id(self) -> str | None:
-        """Return a stable, readable entity object id suggestion."""
-        suffix = getattr(self, "_desman_object_id_suffix", None)
-        if suffix is None:
-            return None
-        lock_name = self.lock_data.get("lockName")
-        lock_part = slugify(str(lock_name)) if lock_name else slugify(self.lock_id)
-        return "_".join((DOMAIN, lock_part, slugify(suffix)))
 
     @property
     def device_info(self) -> DeviceInfo:

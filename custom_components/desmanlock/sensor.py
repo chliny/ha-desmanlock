@@ -183,8 +183,8 @@ class DesmanLockSensor(DesmanLockEntity, SensorEntity):
         """Initialize sensor."""
         super().__init__(coordinator)
         self.entity_description = description
+        self.entity_id = f"sensor.{DOMAIN}_{self.lock_id}_{description.key}"
         self._attr_unique_id = f"{DOMAIN}_{self.lock_id}_{description.key}"
-        self._desman_object_id_suffix = description.key
 
     @property
     def native_value(self) -> Any:
