@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
-from .helpers import extract_open_user, latest_open_user
+from .helpers import extract_open_user, latest_open_user_record
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -62,7 +62,7 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         key="last_open_user",
         translation_key="last_open_user",
         value_fn=lambda coordinator: _last_open_user_state(coordinator),
-        attributes_fn=lambda coordinator: _last_open_record_attributes(coordinator),
+        attributes_fn=lambda coordinator: _last_open_user_record_attributes(coordinator),
     ),
     DesmanSensorEntityDescription(
         key="last_open_mode",
@@ -229,7 +229,15 @@ def _open_door_log_attributes(coordinator: DesmanLockDataUpdateCoordinator) -> d
 
 def _last_open_user_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
     """Return the latest opener by scanning open-door records newest-first."""
-    return latest_open_user(coordinator.data.get("records"))
+    return latest_open_user_record(coordinator.data.get("records")).get("user")
+
+
+def _last_open_user_record_attributes(
+    coordinator: DesmanLockDataUpdateCoordinator,
+) -> dict[str, Any]:
+    """Return log time from the open-door record that provided the latest user."""
+    record = latest_open_user_record(coordinator.data.get("records"))
+    return {"logtime": record.get("datetime")}
 
 
 def _last_open_record_attributes(
