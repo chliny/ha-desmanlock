@@ -85,7 +85,17 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             last_open = _last_open_record(open_records) or previous_data.get("last_open") or {}
             last_alarm = _last_alarm_record(alarm_records) or previous_data.get("last_alarm") or {}
-            last_action = _last_action_record(action_records) or previous_data.get("last_action") or {}
+            last_action = (
+                _last_action_record(action_records)
+                or previous_data.get("last_action")
+                or {}
+            )
+            last_open_snapshot = _last_record_with_picture(
+                open_records, LOG_TYPE_OPEN_DOOR
+            ) or previous_data.get("last_open_snapshot") or {}
+            last_alarm_snapshot = _last_record_with_picture(
+                alarm_records, LOG_TYPE_ALARM
+            ) or previous_data.get("last_alarm_snapshot") or {}
             self.bluetooth.update_data(selected_lock, detail, detail_config)
             return {
                 "locks": locks,
@@ -97,6 +107,8 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "last_open": last_open,
                 "last_alarm": last_alarm,
                 "last_action": last_action,
+                "last_open_snapshot": last_open_snapshot,
+                "last_alarm_snapshot": last_alarm_snapshot,
             }
         except DesmanLockApiError as err:
             raise UpdateFailed(str(err)) from err
@@ -150,6 +162,30 @@ def _last_record(records: list[dict[str, Any]], log_type_int: int) -> dict[str, 
         day = day or {}
         for detail in day.get("logDetails") or []:
             if str(detail.get("logTypeInt")) != str(log_type_int):
+                continue
+            result = dict(detail)
+            log_date = day.get("logDate")
+            log_time = detail.get("logTime")
+            if log_date and log_time:
+                result["datetime"] = f"{log_date} {log_time}"
+            elif log_date:
+                result["datetime"] = log_date
+            result["dayTag"] = day.get("dayTag")
+            result["weekTag"] = day.get("weekTag")
+            return result
+    return {}
+
+
+def _last_record_with_picture(
+    records: list[dict[str, Any]], log_type_int: int
+) -> dict[str, Any]:
+    """Return the newest matching record that contains a picture ID."""
+    for day in records:
+        day = day or {}
+        for detail in day.get("logDetails") or []:
+            if str(detail.get("logTypeInt")) != str(log_type_int):
+                continue
+            if not detail.get("pic"):
                 continue
             result = dict(detail)
             log_date = day.get("logDate")

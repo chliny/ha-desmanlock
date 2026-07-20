@@ -11,7 +11,7 @@ CONF_REGION_ID = "region_id"
 DEFAULT_REGION_ID = "1"
 DEFAULT_SCAN_INTERVAL = 300
 
-PLATFORMS = ["lock", "sensor"]
+PLATFORMS = ["image", "lock", "sensor"]
 
 BASE_URL = "https://nyuwa.dsmxp.com"
 APP_VERSION = "6.14.0"

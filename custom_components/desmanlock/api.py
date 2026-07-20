@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+import base64
+from dataclasses import dataclass, field
+from email.utils import formatdate
 import hashlib
+import hmac
+import json
 import logging
+from threading import Lock
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -20,6 +26,12 @@ from .const import (
 )
 
 REQUEST_TIMEOUT = 25
+
+_ALI_OPEN_ACCOUNT_HOST = "sdk.openaccount.aliyun.com"
+_ALI_IOT_HOST = "api.link.aliyun.com"
+_ALI_IOT_APP_KEY = "27572231"
+_ALI_IOT_APP_SECRET = "12e0452d8b5173804109fceba4bdcaa5"
+_ALI_AUTH_ERROR_CODES = {401, 26101, 26251}
 
 _AUTH_ERROR_CODES = {"401", "403", "10001", "10002"}
 _AUTH_ERROR_MESSAGES = ("未登录", "重新登录", "登录已过期", "登录失效")
@@ -52,6 +64,15 @@ class DesmanLockApiClient:
     password: str
     region_id: str = DEFAULT_REGION_ID
     token: str | None = None
+    _iot_token: str | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _iot_token_expires_at: float = field(
+        default=0, init=False, repr=False, compare=False
+    )
+    _ali_auth_lock: Lock = field(
+        default_factory=Lock, init=False, repr=False, compare=False
+    )
 
     def _headers(self, *, auth: bool = True) -> dict[str, str]:
         headers = {
@@ -135,8 +156,291 @@ class DesmanLockApiClient:
         if not token:
             raise DesmanLockAuthError("Login response does not contain token")
         self.token = token
+        self._invalidate_iot_token()
         _LOGGER.debug("Desman API login succeeded")
         return token
+
+    @staticmethod
+    def _ali_signature(
+        method: str,
+        path: str,
+        headers: dict[str, str],
+        *,
+        query: dict[str, str] | None = None,
+        form: dict[str, str] | None = None,
+    ) -> tuple[str, str]:
+        """Return the signature used by Alibaba Cloud API Gateway."""
+        signed_headers = sorted(
+            name for name in headers if name.startswith("x-ca-")
+        )
+        resource_params = {**(query or {}), **(form or {})}
+        resource = path
+        if resource_params:
+            resource += "?" + "&".join(
+                key + (f"={value}" if value else "")
+                for key, value in sorted(resource_params.items())
+            )
+        string_to_sign = "\n".join(
+            (
+                method,
+                headers.get("accept", ""),
+                headers.get("content-md5", ""),
+                headers.get("content-type", ""),
+                headers.get("date", ""),
+            )
+        ) + "\n"
+        string_to_sign += "".join(
+            f"{name}:{headers[name]}\n" for name in signed_headers
+        )
+        string_to_sign += resource
+        signature = base64.b64encode(
+            hmac.new(
+                _ALI_IOT_APP_SECRET.encode(),
+                string_to_sign.encode(),
+                hashlib.sha1,
+            ).digest()
+        ).decode()
+        return signature, ",".join(signed_headers)
+
+    @classmethod
+    def _ali_gateway_headers(
+        cls,
+        host: str,
+        path: str,
+        *,
+        content_type: str,
+        body: bytes | None = None,
+        query: dict[str, str] | None = None,
+        form: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """Build Alibaba Cloud API Gateway request headers."""
+        headers = {
+            "accept": "application/json; charset=utf-8",
+            "content-type": content_type,
+            "date": formatdate(usegmt=True),
+            "host": host,
+            "user-agent": "ALIYUN-ANDROID-DEMO",
+            "x-ca-key": _ALI_IOT_APP_KEY,
+            "x-ca-nonce": str(uuid4()),
+            "x-ca-signature-method": "HmacSHA1",
+            "x-ca-timestamp": str(int(time.time() * 1000)),
+            "CA_VERSION": "1",
+        }
+        if body:
+            headers["content-md5"] = base64.b64encode(
+                hashlib.md5(body).digest()
+            ).decode()
+        signature, signed_headers = cls._ali_signature(
+            "POST", path, headers, query=query, form=form
+        )
+        headers["x-ca-signature-headers"] = signed_headers
+        headers["x-ca-signature"] = signature
+        return headers
+
+    @staticmethod
+    def _unwrap_ali_response(response: requests.Response) -> dict[str, Any]:
+        """Unwrap the API Gateway envelope used by both Alibaba APIs."""
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("code") is None and isinstance(payload.get("data"), dict):
+            return payload["data"]
+        return payload
+
+    def _open_account_session(self) -> str:
+        """Exchange the Desman access token for an OpenAccount session ID."""
+        self.ensure_token()
+        path = "/api/prd/loginbyoauth.json"
+        request = {
+            "oauthPlateform": 23,
+            "oauthAppKey": _ALI_IOT_APP_KEY,
+            "authCode": self.token,
+            "riskControlInfo": {
+                "platformName": "android",
+                "platformVersion": "33",
+                "appVersion": APP_VERSION_CODE,
+                "appVersionName": APP_VERSION,
+                "sdkVersion": "3.4.2",
+                "locale": "zh_CN",
+                "netType": "wifi",
+                "USE_OA_PWD_ENCRYPT": "true",
+                "USE_H5_NC": "true",
+                "packageName": "com.dsm.secondlock",
+            },
+        }
+        form = {
+            "loginByOauthRequest": json.dumps(
+                request, separators=(",", ":"), ensure_ascii=False
+            )
+        }
+        response = requests.post(
+            f"https://{_ALI_OPEN_ACCOUNT_HOST}{path}",
+            headers=self._ali_gateway_headers(
+                _ALI_OPEN_ACCOUNT_HOST,
+                path,
+                content_type="application/x-www-form-urlencoded; charset=utf-8",
+                form=form,
+            ),
+            data=form,
+            timeout=REQUEST_TIMEOUT,
+        )
+        payload = self._unwrap_ali_response(response)
+        if payload.get("code") != 1:
+            message = str(payload.get("message") or payload.get("code") or "")
+            if _is_auth_error(str(payload.get("code") or ""), message):
+                raise DesmanLockAuthError(message)
+            raise DesmanLockApiError(
+                f"Alibaba OpenAccount login failed: {message}"
+            )
+        login = (payload.get("data") or {}).get("loginSuccessResult") or {}
+        if not (session_id := login.get("sid")):
+            raise DesmanLockApiError("Alibaba OpenAccount response contains no sid")
+        return str(session_id)
+
+    def _ali_iot_request(
+        self,
+        path: str,
+        api_version: str,
+        params: dict[str, Any],
+        *,
+        iot_token: str | None = None,
+    ) -> dict[str, Any]:
+        """Send an Alibaba IoT API Gateway request."""
+        request_id = str(uuid4())
+        request: dict[str, Any] = {"apiVer": api_version}
+        if iot_token:
+            request["iotToken"] = iot_token
+        payload = {
+            "id": request_id,
+            "version": "1.0",
+            "request": request,
+            "params": params,
+        }
+        body = json.dumps(
+            payload, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+        query = {"x-ca-request-id": request_id}
+        response = requests.post(
+            f"https://{_ALI_IOT_HOST}{path}",
+            headers=self._ali_gateway_headers(
+                _ALI_IOT_HOST,
+                path,
+                content_type="application/octet-stream; charset=utf-8",
+                body=body,
+                query=query,
+            ),
+            params=query,
+            data=body,
+            timeout=REQUEST_TIMEOUT,
+        )
+        return self._unwrap_ali_response(response)
+
+    def _create_iot_token(self) -> tuple[str, int]:
+        """Create an Alibaba IoT token using the OpenAccount session."""
+        session_id = self._open_account_session()
+        payload = self._ali_iot_request(
+            "/account/createSessionByAuthCode",
+            "1.0.4",
+            {
+                "request": {
+                    "authCode": session_id,
+                    "appKey": _ALI_IOT_APP_KEY,
+                    "accountType": "OA_SESSION",
+                }
+            },
+        )
+        if payload.get("code") != 200:
+            raise DesmanLockApiError(
+                f"Alibaba IoT login failed: {payload.get('message') or payload.get('code')}"
+            )
+        data = payload.get("data") or {}
+        if not (iot_token := data.get("iotToken")):
+            raise DesmanLockApiError("Alibaba IoT response contains no iotToken")
+        try:
+            expires_in = int(data.get("iotTokenExpire") or 1800)
+        except (TypeError, ValueError):
+            expires_in = 1800
+        return str(iot_token), expires_in
+
+    def _invalidate_iot_token(self) -> None:
+        """Discard the cached Alibaba IoT token."""
+        self._iot_token = None
+        self._iot_token_expires_at = 0
+
+    def _ensure_iot_token(self) -> str:
+        """Return a valid cached Alibaba IoT token."""
+        if self._iot_token and time.monotonic() < self._iot_token_expires_at:
+            return self._iot_token
+        with self._ali_auth_lock:
+            if self._iot_token and time.monotonic() < self._iot_token_expires_at:
+                return self._iot_token
+            try:
+                token, expires_in = self._create_iot_token()
+            except DesmanLockAuthError:
+                self.token = None
+                self.login()
+                token, expires_in = self._create_iot_token()
+            self._iot_token = token
+            self._iot_token_expires_at = time.monotonic() + max(
+                1, min(expires_in - 60, 3600)
+            )
+            return token
+
+    def picture_url(self, iot_id: str, picture_id: str) -> str:
+        """Resolve an app picture ID to a temporary Alibaba OSS URL."""
+        for attempt in range(2):
+            payload = self._ali_iot_request(
+                "/vision/customer/picture/querybyids",
+                "2.1.0",
+                {
+                    "iotId": iot_id,
+                    "pictureIdList": [picture_id],
+                    "type": 0,
+                },
+                iot_token=self._ensure_iot_token(),
+            )
+            code = payload.get("code")
+            if code == 200:
+                pictures = (payload.get("data") or {}).get("pictureList") or []
+                if not pictures:
+                    raise DesmanLockApiError(
+                        "Alibaba picture response contains no picture"
+                    )
+                picture = pictures[0]
+                if url := picture.get("thumbUrl") or picture.get("pictureUrl"):
+                    return str(url)
+                raise DesmanLockApiError(
+                    "Alibaba picture response contains no picture URL"
+                )
+            if code in _ALI_AUTH_ERROR_CODES and attempt == 0:
+                self._invalidate_iot_token()
+                continue
+            raise DesmanLockApiError(
+                f"Alibaba picture query failed: {payload.get('message') or code}"
+            )
+        raise DesmanLockApiError("Alibaba picture query failed")
+
+    def picture(self, iot_id: str, picture_id: str) -> tuple[bytes, str]:
+        """Resolve and download a picture from Alibaba OSS."""
+        try:
+            response = requests.get(
+                self.picture_url(iot_id, picture_id), timeout=REQUEST_TIMEOUT
+            )
+            response.raise_for_status()
+        except requests.HTTPError as err:
+            status = err.response.status_code if err.response is not None else "unknown"
+            raise DesmanLockApiError(
+                f"Unable to download Alibaba picture: HTTP {status}"
+            ) from None
+        except requests.RequestException as err:
+            raise DesmanLockApiError(
+                f"Unable to download Alibaba picture: {type(err).__name__}"
+            ) from None
+        content_type = response.headers.get("content-type", "").split(";", 1)[0]
+        if not content_type.startswith("image/"):
+            raise DesmanLockApiError(
+                f"Alibaba picture has invalid content type: {content_type or 'unknown'}"
+            )
+        return response.content, content_type
 
     def ensure_token(self) -> None:
         """Ensure token exists."""
@@ -461,6 +765,12 @@ class DesmanLockApiClient:
             page_size=page_size,
             record_type=record_type,
         )
+
+    async def async_picture(
+        self, iot_id: str, picture_id: str
+    ) -> tuple[bytes, str]:
+        """Resolve and download an Alibaba picture asynchronously."""
+        return await asyncio.to_thread(self.picture, iot_id, picture_id)
 
     async def async_dynamic_password(self, lock_id: str) -> Any:
         """Async dynamic password wrapper."""

@@ -41,6 +41,24 @@
     }
   },
   "entity": {
+    "image": {
+      "last_open_snapshot": {
+        "name": "Latest unlock snapshot",
+        "state_attributes": {
+          "content": {"name": "Content"},
+          "log_type": {"name": "Log type"},
+          "time": {"name": "Time"}
+        }
+      },
+      "last_alarm_snapshot": {
+        "name": "Security snapshot",
+        "state_attributes": {
+          "content": {"name": "Content"},
+          "log_type": {"name": "Log type"},
+          "time": {"name": "Time"}
+        }
+      }
+    },
     "lock": {
       "lock": {
         "state_attributes": {
