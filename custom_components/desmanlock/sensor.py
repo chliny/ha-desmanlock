@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity
-from .helpers import extract_open_user, latest_open_user_record
+from .helpers import extract_open_user, latest_open_time_record, latest_open_user_record
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -73,7 +73,7 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
     DesmanSensorEntityDescription(
         key="last_open_time",
         translation_key="last_open_time",
-        value_fn=lambda coordinator: (coordinator.data.get("last_open", {}) or {}).get("datetime"),
+        value_fn=lambda coordinator: _last_open_time_state(coordinator),
     ),
     DesmanSensorEntityDescription(
         key="open_door_log",
@@ -238,6 +238,11 @@ def _last_open_user_record_attributes(
     """Return log time from the open-door record that provided the latest user."""
     record = latest_open_user_record(coordinator.data.get("records"))
     return {"logtime": record.get("datetime")}
+
+
+def _last_open_time_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:
+    """Return the latest open-door time, excluding doorbell rings."""
+    return latest_open_time_record(coordinator.data.get("records")).get("datetime")
 
 
 def _last_open_record_attributes(

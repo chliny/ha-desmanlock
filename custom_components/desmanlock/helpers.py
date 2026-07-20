@@ -26,6 +26,19 @@ def latest_open_user(records: list[dict] | None) -> str | None:
     return latest_open_user_record(records).get("user")
 
 
+def latest_open_time_record(records: list[dict] | None) -> dict[str, Any]:
+    """Return the latest open-door record, excluding doorbell rings."""
+    for day in records or []:
+        day = day or {}
+        for detail in day.get("logDetails") or []:
+            if str(detail.get("logTypeInt")) != str(LOG_TYPE_OPEN_DOOR):
+                continue
+            if DOORBELL_RING_TEXT in str(detail.get("content") or ""):
+                continue
+            return _record_with_datetime(day, detail)
+    return {}
+
+
 def latest_open_user_record(records: list[dict] | None) -> dict[str, Any]:
     """Return the latest opener and the matching open-door record."""
     for day in records or []:
@@ -42,9 +55,9 @@ def latest_open_user_record(records: list[dict] | None) -> dict[str, Any]:
 def _record_with_datetime(
     day: dict[str, Any],
     detail: dict[str, Any],
-    user: str,
+    user: str | None = None,
 ) -> dict[str, Any]:
-    """Return a flattened open-door detail enriched with user and datetime."""
+    """Return a flattened open-door detail enriched with datetime."""
     result = dict(detail)
     log_date = day.get("logDate")
     log_time = detail.get("logTime")
@@ -54,5 +67,6 @@ def _record_with_datetime(
         result["datetime"] = log_date
     result["dayTag"] = day.get("dayTag")
     result["weekTag"] = day.get("weekTag")
-    result["user"] = user
+    if user is not None:
+        result["user"] = user
     return result
