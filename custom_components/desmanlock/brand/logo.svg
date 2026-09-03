@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="160" viewBox="0 0 640 160">
+  <g fill="none" stroke="#003f3b" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="14" d="M26 72V48c0-21 17-38 38-38h22c21 0 38 17 38 38v24"/>
+    <rect stroke-width="14" x="14" y="66" width="96" height="76" rx="14"/>
+    <circle fill="#003f3b" stroke="none" cx="62" cy="98" r="9"/>
+    <path stroke-width="10" d="M62 107v19"/>
+  </g>
+  <text x="142" y="105" fill="#003f3b" font-family="DejaVu Sans, Arial, sans-serif" font-size="56" font-weight="600" letter-spacing="-1">Desman Lock</text>
+</svg>
