@@ -90,9 +90,6 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 or previous_data.get("last_action")
                 or {}
             )
-            last_open_snapshot = _last_record_with_picture(
-                open_records, LOG_TYPE_OPEN_DOOR
-            ) or previous_data.get("last_open_snapshot") or {}
             last_alarm_snapshot = _last_record_with_picture(
                 alarm_records, LOG_TYPE_ALARM
             ) or previous_data.get("last_alarm_snapshot") or {}
@@ -107,7 +104,6 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "last_open": last_open,
                 "last_alarm": last_alarm,
                 "last_action": last_action,
-                "last_open_snapshot": last_open_snapshot,
                 "last_alarm_snapshot": last_alarm_snapshot,
             }
         except DesmanLockApiError as err:

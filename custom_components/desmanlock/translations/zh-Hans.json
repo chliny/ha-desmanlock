@@ -42,14 +42,6 @@
   },
   "entity": {
     "image": {
-      "last_open_snapshot": {
-        "name": "最近开门抓拍",
-        "state_attributes": {
-          "content": {"name": "内容"},
-          "log_type": {"name": "日志类型"},
-          "time": {"name": "时间"}
-        }
-      },
       "last_alarm_snapshot": {
         "name": "安防抓拍",
         "state_attributes": {

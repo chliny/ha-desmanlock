@@ -10,6 +10,7 @@ from homeassistant.components.image import ImageEntity, ImageEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
@@ -20,10 +21,6 @@ from .entity import DesmanLockEntity
 
 
 IMAGES: tuple[ImageEntityDescription, ...] = (
-    ImageEntityDescription(
-        key="last_open_snapshot",
-        translation_key="last_open_snapshot",
-    ),
     ImageEntityDescription(
         key="last_alarm_snapshot",
         translation_key="last_alarm_snapshot",
@@ -38,6 +35,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up Desman Lock image entities."""
     coordinator: DesmanLockDataUpdateCoordinator = entry.runtime_data
+    registry = er.async_get(hass)
+    if entity_id := registry.async_get_entity_id(
+        "image",
+        DOMAIN,
+        f"{DOMAIN}_{coordinator.lock_id}_last_open_snapshot",
+    ):
+        registry.async_remove(entity_id)
     async_add_entities(
         DesmanLockSnapshotImage(hass, coordinator, description)
         for description in IMAGES

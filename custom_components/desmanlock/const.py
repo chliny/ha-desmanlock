@@ -11,6 +11,9 @@ CONF_REGION_ID = "region_id"
 DEFAULT_REGION_ID = "1"
 DEFAULT_SCAN_INTERVAL = 300
 
+# camera.py is intentionally not registered until the LinkVisual media pipeline
+# can run entirely inside the integration. This also prevents preview requests
+# from waking the peephole camera or creating cloud stream sessions.
 PLATFORMS = ["image", "lock", "sensor"]
 
 BASE_URL = "https://nyuwa.dsmxp.com"

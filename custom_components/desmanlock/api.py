@@ -442,6 +442,254 @@ class DesmanLockApiClient:
             )
         return response.content, content_type
 
+    def ali_invoke_thing_service(
+        self,
+        iot_id: str,
+        identifier: str,
+        args: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Invoke an Alibaba IoT thing service."""
+        for attempt in range(2):
+            payload = self._ali_iot_request(
+                "/thing/service/invoke",
+                "1.0.2",
+                {
+                    "iotId": iot_id,
+                    "identifier": identifier,
+                    "args": args or {},
+                },
+                iot_token=self._ensure_iot_token(),
+            )
+            code = payload.get("code")
+            if code == 200:
+                return payload
+            if code in _ALI_AUTH_ERROR_CODES and attempt == 0:
+                self._invalidate_iot_token()
+                continue
+            raise DesmanLockApiError(
+                "Alibaba thing service failed: "
+                f"{payload.get('message') or code}"
+            )
+        raise DesmanLockApiError("Alibaba thing service failed")
+
+    def ali_thing_status(self, iot_id: str) -> dict[str, Any]:
+        """Return Alibaba IoT thing online status."""
+        for attempt in range(2):
+            payload = self._ali_iot_request(
+                "/thing/status/get",
+                "1.0.2",
+                {"iotId": iot_id},
+                iot_token=self._ensure_iot_token(),
+            )
+            code = payload.get("code")
+            if code == 200:
+                data = payload.get("data")
+                return data if isinstance(data, dict) else {}
+            if code in _ALI_AUTH_ERROR_CODES and attempt == 0:
+                self._invalidate_iot_token()
+                continue
+            raise DesmanLockApiError(
+                "Alibaba thing status query failed: "
+                f"{payload.get('message') or code}"
+            )
+        raise DesmanLockApiError("Alibaba thing status query failed")
+
+    def ali_thing_properties(self, iot_id: str) -> dict[str, Any]:
+        """Return Alibaba IoT thing properties."""
+        for attempt in range(2):
+            payload = self._ali_iot_request(
+                "/thing/properties/get",
+                "1.0.2",
+                {"iotId": iot_id},
+                iot_token=self._ensure_iot_token(),
+            )
+            code = payload.get("code")
+            if code == 200:
+                data = payload.get("data")
+                return data if isinstance(data, dict) else {}
+            if code in _ALI_AUTH_ERROR_CODES and attempt == 0:
+                self._invalidate_iot_token()
+                continue
+            raise DesmanLockApiError(
+                "Alibaba thing properties query failed: "
+                f"{payload.get('message') or code}"
+            )
+        raise DesmanLockApiError("Alibaba thing properties query failed")
+
+    def ali_camera_status(self, iot_id: str) -> int:
+        """Return App-style Alibaba camera status."""
+        status = self.ali_thing_status(iot_id).get("status")
+        if status == 1:
+            properties = self.ali_thing_properties(iot_id)
+            low_power = properties.get("LowPowerState")
+            low_power_value = (
+                low_power.get("value") if isinstance(low_power, dict) else None
+            )
+            if low_power_value == 1:
+                return 11
+            if low_power_value == 0:
+                return 1
+            return -1
+        if status in (0, 3, 8):
+            return int(status)
+        return -1
+
+    def ali_wake_camera(self, iot_id: str) -> None:
+        """Wake an Alibaba low-power camera using the App-style flow."""
+        status = self.ali_camera_status(iot_id)
+        if status == 1:
+            return
+        if status == 3:
+            raise DesmanLockApiError("Alibaba camera is offline")
+        if status == 8:
+            raise DesmanLockApiError("Alibaba camera is disabled")
+        if status != 11:
+            raise DesmanLockApiError(f"Alibaba camera status is unknown: {status}")
+
+        for wake_round in range(3):
+            for _ in range(10):
+                try:
+                    self.ali_invoke_thing_service(iot_id, "WakeUp")
+                except DesmanLockApiError as err:
+                    _LOGGER.debug("Alibaba camera wake-up request failed: %s", err)
+                time.sleep(0.5)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                status = self.ali_camera_status(iot_id)
+                if status == 1:
+                    return
+                if status in (3, 8):
+                    break
+                time.sleep(1)
+            _LOGGER.debug("Alibaba camera wake-up round %s did not finish", wake_round + 1)
+
+        raise DesmanLockApiError("Alibaba camera wake-up timed out")
+
+    def ali_live_stream(
+        self,
+        iot_id: str,
+        *,
+        wake_up: bool = True,
+        api_version: str = "2.1.8",
+        stream_type: int = 0,
+        start_push: bool = False,
+    ) -> dict[str, Any]:
+        """Return Alibaba LinkVisual live-stream parameters.
+
+        The LinkVisual SDK requests a relay/P2P session and then completes a
+        private native signalling flow.  The returned relay URL is a candidate
+        media endpoint, but by itself it has not been proven to be directly
+        readable by FFmpeg/Home Assistant.  ``start_push`` is kept for
+        diagnostics only; the Android app does not call these services before
+        the player has already produced video.
+        """
+        def query_relay(*, attempts: int = 1) -> dict[str, Any]:
+            last_message: str | int | None = None
+            auth_retried = False
+            for query_attempt in range(attempts):
+                payload = self._ali_iot_request(
+                    "/vision/customer/stream/query",
+                    api_version,
+                    {
+                        "iotId": iot_id,
+                        "streamType": stream_type,
+                        "relayEncrypted": False,
+                        "relayEncryptType": 0,
+                        "forceIFrame": True,
+                        "enablePrePlay": True,
+                        "needDomainName": True,
+                        "enableWebSocket": True,
+                        "enablePortPredict": True,
+                        "clientType": "Android",
+                        "cacheDuration": 0,
+                    },
+                    iot_token=self._ensure_iot_token(),
+                )
+                code = payload.get("code")
+                last_message = payload.get("message") or code
+                if code == 200:
+                    data = payload.get("data")
+                    if not isinstance(data, dict):
+                        raise DesmanLockApiError(
+                            "Alibaba live stream response contains no data"
+                        )
+                    if not data.get("relayUrl"):
+                        raise DesmanLockApiError(
+                            "Alibaba live stream response contains no relay URL"
+                        )
+                    return data
+                if code in _ALI_AUTH_ERROR_CODES and not auth_retried:
+                    auth_retried = True
+                    self._invalidate_iot_token()
+                    continue
+                if (
+                    query_attempt < attempts - 1
+                    and "offline" in str(last_message).lower()
+                ):
+                    time.sleep(2)
+                    continue
+                raise DesmanLockApiError(
+                    f"Alibaba live stream query failed: {last_message}"
+                )
+            raise DesmanLockApiError(
+                f"Alibaba live stream query failed: {last_message}"
+            )
+
+        def start_push_streaming(data: dict[str, Any]) -> dict[str, Any]:
+            relay_url = data.get("relayUrl")
+            if not isinstance(relay_url, str) or not relay_url:
+                raise DesmanLockApiError(
+                    "Alibaba live stream response contains no relay URL"
+                )
+            self.ali_invoke_thing_service(iot_id, "StartVideo")
+            return self.ali_invoke_thing_service(
+                iot_id,
+                "StartPushStreaming",
+                {
+                    "PushUrl": relay_url,
+                    "StreamType": stream_type,
+                    "Scheme": 0,
+                    "EncryptKey": "",
+                    "EncryptType": 0,
+                    "PreTime": 0,
+                },
+            )
+
+        if wake_up:
+            self.ali_wake_camera(iot_id)
+            try:
+                query_relay(attempts=3)
+            except DesmanLockApiError as err:
+                _LOGGER.debug(
+                    "Alibaba live stream warm-up query failed: %s",
+                    err,
+                )
+            time.sleep(1)
+
+        data = query_relay(attempts=3 if wake_up else 1)
+        data["directPlayable"] = False
+        if start_push:
+            try:
+                response = start_push_streaming(data)
+                data["pushStarted"] = True
+                data["pushResponse"] = response.get("data")
+            except DesmanLockApiError as err:
+                data["pushStarted"] = False
+                data["pushError"] = str(err)
+                raise
+        return data
+
+    def ali_stop_live_stream(self, iot_id: str, *, stream_type: int = 0) -> None:
+        """Ask the Alibaba device to stop pushing a live stream."""
+        try:
+            self.ali_invoke_thing_service(
+                iot_id,
+                "StopPushStreaming",
+                {"StreamType": stream_type},
+            )
+        finally:
+            self.ali_invoke_thing_service(iot_id, "AppHangUpVideo")
+
     def ensure_token(self) -> None:
         """Ensure token exists."""
         if not self.token:
@@ -771,6 +1019,36 @@ class DesmanLockApiClient:
     ) -> tuple[bytes, str]:
         """Resolve and download an Alibaba picture asynchronously."""
         return await asyncio.to_thread(self.picture, iot_id, picture_id)
+
+    async def async_ali_live_stream(
+        self,
+        iot_id: str,
+        *,
+        wake_up: bool = True,
+        stream_type: int = 0,
+        start_push: bool = False,
+    ) -> dict[str, Any]:
+        """Return Alibaba LinkVisual live-stream parameters asynchronously."""
+        return await asyncio.to_thread(
+            self.ali_live_stream,
+            iot_id,
+            wake_up=wake_up,
+            stream_type=stream_type,
+            start_push=start_push,
+        )
+
+    async def async_ali_stop_live_stream(
+        self,
+        iot_id: str,
+        *,
+        stream_type: int = 0,
+    ) -> None:
+        """Ask the Alibaba device to stop pushing a live stream asynchronously."""
+        await asyncio.to_thread(
+            self.ali_stop_live_stream,
+            iot_id,
+            stream_type=stream_type,
+        )
 
     async def async_dynamic_password(self, lock_id: str) -> Any:
         """Async dynamic password wrapper."""
