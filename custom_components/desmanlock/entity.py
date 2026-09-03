@@ -6,9 +6,20 @@ from typing import Any
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
+
+
+def entity_identity(lock_id: str, key: str) -> str:
+    """Return a stable Home Assistant-safe entity identity."""
+    return slugify(f"{DOMAIN}_{lock_id}_{key}")
+
+
+def entity_unique_id(lock_id: str, key: str) -> str:
+    """Return the published unique ID without changing its historical format."""
+    return f"{DOMAIN}_{lock_id}_{key}"
 
 
 class DesmanLockEntity(CoordinatorEntity[DesmanLockDataUpdateCoordinator]):

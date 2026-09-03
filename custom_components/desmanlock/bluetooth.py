@@ -405,8 +405,15 @@ class DesmanBluetoothLock:
             return await asyncio.wait_for(response, RESPONSE_TIMEOUT)
         except TimeoutError as err:
             raise HomeAssistantError("Desman lock did not answer the Bluetooth command") from err
+        except Exception:
+            if self._client is client:
+                self._client = None
+            raise
         finally:
-            await client.stop_notify(NOTIFY_CHARACTERISTIC)
+            try:
+                await client.stop_notify(NOTIFY_CHARACTERISTIC)
+            except Exception:
+                _LOGGER.debug("Failed to stop Desman BLE notifications", exc_info=True)
 
 
 def _command_bytes(data: dict[str, Any]) -> bytes:

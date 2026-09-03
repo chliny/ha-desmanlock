@@ -24,6 +24,7 @@ from .const import (
     DEFAULT_REGION_ID,
     USER_AGENT,
 )
+from .exceptions import DesmanLockApiError, DesmanLockAuthError
 
 REQUEST_TIMEOUT = 25
 
@@ -46,14 +47,6 @@ def _is_auth_error(code: str, message: str) -> bool:
         or "token" in message.lower()
         or any(text in message for text in _AUTH_ERROR_MESSAGES)
     )
-
-
-class DesmanLockApiError(Exception):
-    """Base Desman Lock API error."""
-
-
-class DesmanLockAuthError(DesmanLockApiError):
-    """Desman Lock authentication error."""
 
 
 @dataclass
@@ -102,22 +95,31 @@ class DesmanLockApiClient:
         auth: bool = True,
     ) -> Any:
         url = f"{BASE_URL}{path}"
-        response = requests.request(
-            method,
-            url,
-            headers=self._headers(auth=auth),
-            params=params,
-            data=data,
-            timeout=REQUEST_TIMEOUT,
-        )
+        try:
+            response = requests.request(
+                method,
+                url,
+                headers=self._headers(auth=auth),
+                params=params,
+                data=data,
+                timeout=REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise DesmanLockApiError("Desman API returned an invalid payload")
+        except requests.RequestException as err:
+            raise DesmanLockApiError(
+                f"Desman API request failed: {type(err).__name__}"
+            ) from err
+        except (ValueError, TypeError) as err:
+            raise DesmanLockApiError("Desman API returned invalid JSON") from err
         _LOGGER.debug(
             "Desman API response: method=%s path=%s http_status=%s",
             method,
             path,
             response.status_code,
         )
-        response.raise_for_status()
-        payload = response.json()
         if payload.get("success") is True:
             result = payload.get("data")
             _LOGGER.debug(
@@ -240,8 +242,17 @@ class DesmanLockApiClient:
     @staticmethod
     def _unwrap_ali_response(response: requests.Response) -> dict[str, Any]:
         """Unwrap the API Gateway envelope used by both Alibaba APIs."""
-        response.raise_for_status()
-        payload = response.json()
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as err:
+            raise DesmanLockApiError(
+                f"Alibaba API request failed: {type(err).__name__}"
+            ) from err
+        except (ValueError, TypeError) as err:
+            raise DesmanLockApiError("Alibaba API returned invalid JSON") from err
+        if not isinstance(payload, dict):
+            raise DesmanLockApiError("Alibaba API returned an invalid payload")
         if payload.get("code") is None and isinstance(payload.get("data"), dict):
             return payload["data"]
         return payload
@@ -272,17 +283,22 @@ class DesmanLockApiClient:
                 request, separators=(",", ":"), ensure_ascii=False
             )
         }
-        response = requests.post(
-            f"https://{_ALI_OPEN_ACCOUNT_HOST}{path}",
-            headers=self._ali_gateway_headers(
-                _ALI_OPEN_ACCOUNT_HOST,
-                path,
-                content_type="application/x-www-form-urlencoded; charset=utf-8",
-                form=form,
-            ),
-            data=form,
-            timeout=REQUEST_TIMEOUT,
-        )
+        try:
+            response = requests.post(
+                f"https://{_ALI_OPEN_ACCOUNT_HOST}{path}",
+                headers=self._ali_gateway_headers(
+                    _ALI_OPEN_ACCOUNT_HOST,
+                    path,
+                    content_type="application/x-www-form-urlencoded; charset=utf-8",
+                    form=form,
+                ),
+                data=form,
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException as err:
+            raise DesmanLockApiError(
+                f"Alibaba OpenAccount request failed: {type(err).__name__}"
+            ) from err
         payload = self._unwrap_ali_response(response)
         if payload.get("code") != 1:
             message = str(payload.get("message") or payload.get("code") or "")
@@ -319,19 +335,24 @@ class DesmanLockApiClient:
             payload, separators=(",", ":"), ensure_ascii=False
         ).encode()
         query = {"x-ca-request-id": request_id}
-        response = requests.post(
-            f"https://{_ALI_IOT_HOST}{path}",
-            headers=self._ali_gateway_headers(
-                _ALI_IOT_HOST,
-                path,
-                content_type="application/octet-stream; charset=utf-8",
-                body=body,
-                query=query,
-            ),
-            params=query,
-            data=body,
-            timeout=REQUEST_TIMEOUT,
-        )
+        try:
+            response = requests.post(
+                f"https://{_ALI_IOT_HOST}{path}",
+                headers=self._ali_gateway_headers(
+                    _ALI_IOT_HOST,
+                    path,
+                    content_type="application/octet-stream; charset=utf-8",
+                    body=body,
+                    query=query,
+                ),
+                params=query,
+                data=body,
+                timeout=REQUEST_TIMEOUT,
+            )
+        except requests.RequestException as err:
+            raise DesmanLockApiError(
+                f"Alibaba IoT request failed: {type(err).__name__}"
+            ) from err
         return self._unwrap_ali_response(response)
 
     def _create_iot_token(self) -> tuple[str, int]:

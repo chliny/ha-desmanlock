@@ -16,6 +16,7 @@ from homeassistant.helpers import selector
 import voluptuous as vol
 
 from .api import DesmanLockApiClient, DesmanLockApiError
+from .exceptions import DesmanLockAuthError
 from .const import (
     CONF_LOCK_ID,
     CONF_PHONE,
@@ -58,6 +59,8 @@ class DesmanLockConfigFlow(ConfigFlow, domain=DOMAIN):
                     for lock in self._locks
                     if lock.get("lockId") not in (None, "")
                 ]
+            except DesmanLockAuthError:
+                errors["base"] = "invalid_auth"
             except DesmanLockApiError:
                 errors["base"] = "cannot_connect"
             else:
@@ -149,6 +152,8 @@ class DesmanLockOptionsFlow(OptionsFlowWithReload):
                 )
                 try:
                     await api.async_login()
+                except DesmanLockAuthError:
+                    errors["base"] = "invalid_auth"
                 except DesmanLockApiError:
                     errors["base"] = "cannot_connect"
                 else:

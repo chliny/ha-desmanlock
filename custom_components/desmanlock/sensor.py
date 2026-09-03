@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
-from .entity import DesmanLockEntity
+from .entity import DesmanLockEntity, entity_identity, entity_unique_id
 from .helpers import extract_open_user, latest_open_time_record, latest_open_user_record
 
 
@@ -24,6 +24,7 @@ class DesmanSensorEntityDescription(SensorEntityDescription):
 
     value_fn: Callable[[DesmanLockDataUpdateCoordinator], Any]
     attributes_fn: Callable[[DesmanLockDataUpdateCoordinator], dict[str, Any]] | None = None
+    exists_fn: Callable[[DesmanLockDataUpdateCoordinator], bool] | None = None
 
 
 SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
@@ -46,6 +47,7 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         value_fn=lambda coordinator: _battery_curve_percentage(coordinator, "small"),
+        exists_fn=lambda coordinator: _battery_curve_has_data(coordinator, "small"),
     ),
     DesmanSensorEntityDescription(
         key="cateye_battery_percentage",
@@ -57,12 +59,20 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
             coordinator.data.get("detail", {}),
             "catBatteryPercentage",
         ),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), coordinator.data.get("detail", {}),
+            keys=("catBatteryPercentage", "cateyeBattery"),
+        ),
     ),
     DesmanSensorEntityDescription(
         key="battery_status",
         translation_key="battery_status",
         value_fn=lambda coordinator: _first_value(
             _detail_and_config(coordinator), coordinator.data.get("detail", {}), "batteryStatus"
+        ),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), coordinator.data.get("detail", {}),
+            keys=("batteryStatus",),
         ),
     ),
     DesmanSensorEntityDescription(
@@ -109,60 +119,91 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         value_fn=lambda coordinator: _first_value(
             _detail_and_config(coordinator), coordinator.data.get("detail", {}), "networkSignal"
         ),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), coordinator.data.get("detail", {}),
+            keys=("networkSignal",),
+        ),
     ),
     DesmanSensorEntityDescription(
         key="wifi_ssid",
         translation_key="wifi_ssid",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("lockWifiSsid"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("lockWifiSsid",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="wifi_state",
         translation_key="wifi_state",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("lockWifiState"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("lockWifiState",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="network_mode",
         translation_key="network_mode",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("networkMode"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("networkMode",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="software_version",
         translation_key="software_version",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("softwareVersion"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("softwareVersion",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="fingerprint_used_count",
         translation_key="fingerprint_used_count",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("fingerUsedNum"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("fingerUsedNum",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="fingerprint_available_count",
         translation_key="fingerprint_available_count",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("fingerUnusedNum"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("fingerUnusedNum",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="face_used_count",
         translation_key="face_used_count",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("faceUsedNum"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("faceUsedNum",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="face_available_count",
         translation_key="face_available_count",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("faceUnusedNum"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("faceUnusedNum",)
+        ),
     ),
     DesmanSensorEntityDescription(
         key="doorbell_volume",
         translation_key="doorbell_volume",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: _detail_and_config(coordinator).get("doorBellVolume"),
+        exists_fn=lambda coordinator: _has_any_value(
+            _detail_and_config(coordinator), keys=("doorBellVolume",)
+        ),
     ),
 )
 
@@ -174,7 +215,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Desman Lock sensors."""
     coordinator: DesmanLockDataUpdateCoordinator = entry.runtime_data
-    async_add_entities(DesmanLockSensor(coordinator, description) for description in SENSORS)
+    async_add_entities(
+        DesmanLockSensor(coordinator, description)
+        for description in SENSORS
+        if description.exists_fn is None or description.exists_fn(coordinator)
+    )
 
 
 class DesmanLockSensor(DesmanLockEntity, SensorEntity):
@@ -190,8 +235,9 @@ class DesmanLockSensor(DesmanLockEntity, SensorEntity):
         """Initialize sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self.entity_id = f"sensor.{DOMAIN}_{self.lock_id}_{description.key}"
-        self._attr_unique_id = f"{DOMAIN}_{self.lock_id}_{description.key}"
+        identity = entity_identity(self.lock_id, description.key)
+        self.entity_id = f"sensor.{identity}"
+        self._attr_unique_id = entity_unique_id(self.lock_id, description.key)
 
     @property
     def native_value(self) -> Any:
@@ -242,6 +288,23 @@ def _battery_curve_percentage(
         return None
     latest = max(valid_records, key=lambda record: str(record.get("date") or ""))
     return latest.get("percent")
+
+
+def _battery_curve_has_data(
+    coordinator: DesmanLockDataUpdateCoordinator, battery_type: str
+) -> bool:
+    """Return whether this battery curve was reported by the lock."""
+    curve = coordinator.data.get("battery_curve") or {}
+    return isinstance(curve.get(f"{battery_type}BatteryPercentList"), list)
+
+
+def _has_any_value(*sources: Any, keys: tuple[str, ...]) -> bool:
+    """Return whether any source contains a non-empty capability field."""
+    return any(
+        isinstance(source, dict)
+        and any(source.get(key) not in (None, "") for key in keys)
+        for source in sources
+    )
 
 
 def _open_door_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:

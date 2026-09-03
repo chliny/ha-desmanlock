@@ -37,6 +37,12 @@ _LOGGER = logging.getLogger(__name__)
 type DesmanLockConfigEntry = ConfigEntry[DesmanLockDataUpdateCoordinator]
 
 SERVICE_LOCK_ID = vol.Optional(CONF_LOCK_ID)
+SERVICE_NAMES = (
+    SERVICE_GET_DYNAMIC_PASSWORD,
+    SERVICE_GET_DIGIT_PASSWORDS,
+    SERVICE_ADD_DIGIT_PASSWORD,
+    SERVICE_UPDATE_DIGIT_PASSWORD,
+)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -47,6 +53,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -> bool:
     """Set up Desman Lock from a config entry."""
+    _async_setup_services(hass)
     config = {**entry.data, **entry.options}
     configured_lock_id = config[CONF_LOCK_ID]
     if not configured_lock_id:
@@ -115,6 +122,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         await entry.runtime_data.bluetooth.async_close()
+        if not any(
+            other.state is ConfigEntryState.LOADED
+            for other in hass.config_entries.async_entries(DOMAIN)
+            if other.entry_id != entry.entry_id
+        ):
+            for service in SERVICE_NAMES:
+                hass.services.async_remove(DOMAIN, service)
     return unloaded
 
 
@@ -178,7 +192,7 @@ def _async_setup_services(hass: HomeAssistant) -> None:
         add_digit_password,
         schema=vol.Schema(
             {
-                SERVICE_LOCK_ID: cv.string,
+                vol.Optional(CONF_LOCK_ID): cv.string,
                 vol.Required("real_time_switch"): vol.In((0, 1)),
                 vol.Required("range_time"): cv.string,
                 vol.Optional("remarks", default=""): cv.string,
@@ -193,6 +207,7 @@ def _async_setup_services(hass: HomeAssistant) -> None:
         update_digit_password,
         schema=vol.Schema(
             {
+                vol.Optional(CONF_LOCK_ID): cv.string,
                 vol.Required("id"): cv.string,
                 vol.Optional("remarks", default=""): cv.string,
                 vol.Required("real_time_switch"): vol.In((0, 1)),
@@ -208,6 +223,11 @@ def _coordinator_from_call(hass: HomeAssistant, call: ServiceCall) -> DesmanLock
     """Return the first coordinator, or one matching requested lock id."""
     entries = hass.config_entries.async_entries(DOMAIN)
     requested_lock_id = call.data.get(CONF_LOCK_ID)
+    loaded_entries = [
+        entry for entry in entries if entry.state is ConfigEntryState.LOADED
+    ]
+    if not requested_lock_id and len(loaded_entries) > 1:
+        raise HomeAssistantError("lock_id is required when multiple locks are configured")
     for entry in entries:
         if entry.state is not ConfigEntryState.LOADED:
             continue

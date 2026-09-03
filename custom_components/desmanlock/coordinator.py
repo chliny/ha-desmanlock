@@ -7,6 +7,7 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DesmanLockApiClient, DesmanLockApiError
@@ -17,6 +18,7 @@ from .const import (
     LOG_TYPE_ALARM,
     LOG_TYPE_OPEN_DOOR,
 )
+from .exceptions import DesmanLockAuthError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,6 +118,8 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "last_action": last_action,
                 "last_alarm_snapshot": last_alarm_snapshot,
             }
+        except DesmanLockAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
         except DesmanLockApiError as err:
             raise UpdateFailed(str(err)) from err
 

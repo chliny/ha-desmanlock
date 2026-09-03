@@ -20,6 +20,7 @@
     },
     "error": {
       "cannot_connect": "Unable to connect or sign in",
+      "invalid_auth": "The account credentials are invalid",
       "no_locks": "No locks were found on this account"
     },
     "abort": {

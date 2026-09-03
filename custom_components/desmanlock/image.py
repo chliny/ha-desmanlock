@@ -17,7 +17,7 @@ from homeassistant.util import dt as dt_util
 from .api import DesmanLockApiError
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
-from .entity import DesmanLockEntity
+from .entity import DesmanLockEntity, entity_identity, entity_unique_id
 
 
 IMAGES: tuple[ImageEntityDescription, ...] = (
@@ -36,12 +36,18 @@ async def async_setup_entry(
     """Set up Desman Lock image entities."""
     coordinator: DesmanLockDataUpdateCoordinator = entry.runtime_data
     registry = er.async_get(hass)
+    old_unique_id = f"{DOMAIN}_{coordinator.lock_id}_last_open_snapshot"
+    new_unique_id = entity_unique_id(str(coordinator.lock_id), "last_alarm_snapshot")
     if entity_id := registry.async_get_entity_id(
         "image",
         DOMAIN,
-        f"{DOMAIN}_{coordinator.lock_id}_last_open_snapshot",
+        old_unique_id,
     ):
-        registry.async_remove(entity_id)
+        if registry.async_get_entity_id("image", DOMAIN, new_unique_id) is None:
+            registry.async_update_entity(
+                entity_id,
+                new_unique_id=new_unique_id,
+            )
     async_add_entities(
         DesmanLockSnapshotImage(hass, coordinator, description)
         for description in IMAGES
@@ -63,8 +69,9 @@ class DesmanLockSnapshotImage(DesmanLockEntity, ImageEntity):
         ImageEntity.__init__(self, hass)
         DesmanLockEntity.__init__(self, coordinator)
         self.entity_description = description
-        self.entity_id = f"image.{DOMAIN}_{self.lock_id}_{description.key}"
-        self._attr_unique_id = f"{DOMAIN}_{self.lock_id}_{description.key}"
+        identity = entity_identity(self.lock_id, description.key)
+        self.entity_id = f"image.{identity}"
+        self._attr_unique_id = entity_unique_id(self.lock_id, description.key)
         self._image_signature: tuple[str | None, str | None, str | None] | None = None
         self._image_bytes: bytes | None = None
         self._image_lock = asyncio.Lock()

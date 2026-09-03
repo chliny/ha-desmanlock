@@ -20,6 +20,7 @@
     },
     "error": {
       "cannot_connect": "无法连接或登录失败",
+      "invalid_auth": "账号或密码错误",
       "no_locks": "该账号下未找到门锁"
     },
     "abort": {
