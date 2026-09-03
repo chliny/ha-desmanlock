@@ -3,6 +3,7 @@ bak/
 .pyc
 .agents
 .codex
+.venv-frida/
 .desmanlock-token.json
 *.log
-scripts/*
+scripts/
