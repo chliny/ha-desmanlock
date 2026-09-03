@@ -71,7 +71,8 @@
       }
     },
     "sensor": {
-      "battery_percentage": {"name": "电池电量"},
+      "battery_percentage": {"name": "大电池电量"},
+      "small_battery_percentage": {"name": "小电池电量"},
       "cateye_battery_percentage": {"name": "猫眼电量"},
       "battery_status": {"name": "电池状态"},
       "last_open_user": {

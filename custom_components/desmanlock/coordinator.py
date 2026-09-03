@@ -63,6 +63,11 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 detail_config = await self.api.async_lock_detail_and_config(lock_id)
             except DesmanLockApiError as err:
                 _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
+            battery_curve: dict[str, Any] = {}
+            try:
+                battery_curve = await self.api.async_lock_battery_curve(lock_id)
+            except DesmanLockApiError as err:
+                _LOGGER.debug("Failed to fetch lock battery curve: %s", err)
             open_records = await self.api.async_open_door_records(
                 lock_id,
                 record_type=LOG_TYPE_OPEN_DOOR,
@@ -83,6 +88,10 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 detail_config,
                 previous_data.get("detail_config") or {},
             )
+            battery_curve = _merge_current_with_previous(
+                battery_curve,
+                previous_data.get("battery_curve") or {},
+            )
             last_open = _last_open_record(open_records) or previous_data.get("last_open") or {}
             last_alarm = _last_alarm_record(alarm_records) or previous_data.get("last_alarm") or {}
             last_action = (
@@ -100,6 +109,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "lock_id": lock_id,
                 "detail": detail,
                 "detail_config": detail_config,
+                "battery_curve": battery_curve,
                 "records": open_records or previous_data.get("records") or [],
                 "last_open": last_open,
                 "last_alarm": last_alarm,

@@ -71,7 +71,8 @@
       }
     },
     "sensor": {
-      "battery_percentage": {"name": "Battery level"},
+      "battery_percentage": {"name": "Large battery level"},
+      "small_battery_percentage": {"name": "Small battery level"},
       "cateye_battery_percentage": {"name": "Peephole camera battery level"},
       "battery_status": {"name": "Battery status"},
       "last_open_user": {

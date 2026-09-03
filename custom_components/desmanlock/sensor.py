@@ -41,6 +41,13 @@ SENSORS: tuple[DesmanSensorEntityDescription, ...] = (
         ),
     ),
     DesmanSensorEntityDescription(
+        key="small_battery_percentage",
+        translation_key="small_battery_percentage",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        value_fn=lambda coordinator: _battery_curve_percentage(coordinator, "small"),
+    ),
+    DesmanSensorEntityDescription(
         key="cateye_battery_percentage",
         translation_key="cateye_battery_percentage",
         native_unit_of_measurement=PERCENTAGE,
@@ -215,6 +222,26 @@ def _detail_and_config(coordinator: DesmanLockDataUpdateCoordinator) -> dict[str
     """Return the lock detail object from the detail-and-config response."""
     data = coordinator.data.get("detail_config") or {}
     return data.get("lockDetailInfo") or data.get("lockDetail") or data
+
+
+def _battery_curve_percentage(
+    coordinator: DesmanLockDataUpdateCoordinator, battery_type: str
+) -> Any:
+    """Return the latest percentage from the app's battery curve response."""
+    curve = coordinator.data.get("battery_curve") or {}
+    list_key = f"{battery_type}BatteryPercentList"
+    records = curve.get(list_key)
+    if not isinstance(records, list):
+        return None
+    valid_records = [
+        record
+        for record in records
+        if isinstance(record, dict) and record.get("percent") not in (None, "")
+    ]
+    if not valid_records:
+        return None
+    latest = max(valid_records, key=lambda record: str(record.get("date") or ""))
+    return latest.get("percent")
 
 
 def _open_door_log_state(coordinator: DesmanLockDataUpdateCoordinator) -> str | None:

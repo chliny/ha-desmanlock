@@ -734,6 +734,15 @@ class DesmanLockApiClient:
             return data[0] if data else {}
         return data or {}
 
+    def lock_battery_curve(self, lock_id: str) -> dict[str, Any]:
+        """Return the lock battery curve containing small and big batteries."""
+        data = self.get(
+            "/nyuwa/dc/lock/battery/getLockBatteryCurve", {"lockId": lock_id}
+        )
+        if isinstance(data, list):
+            return data[0] if data else {}
+        return data or {}
+
     def lock_protocol_config(
         self, lock_mac: str, meter_type: str, firmware_version: str
     ) -> dict[str, Any]:
@@ -988,6 +997,10 @@ class DesmanLockApiClient:
     async def async_lock_detail_and_config(self, lock_id: str) -> dict[str, Any]:
         """Async lock detail and config wrapper."""
         return await asyncio.to_thread(self.lock_detail_and_config, lock_id)
+
+    async def async_lock_battery_curve(self, lock_id: str) -> dict[str, Any]:
+        """Async lock battery curve wrapper."""
+        return await asyncio.to_thread(self.lock_battery_curve, lock_id)
 
     async def async_lock_protocol_config(
         self, lock_mac: str, meter_type: str, firmware_version: str
