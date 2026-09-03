@@ -63,11 +63,15 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             detail = await self.api.async_lock_detail(lock_id)
             try:
                 detail_config = await self.api.async_lock_detail_and_config(lock_id)
+            except DesmanLockAuthError:
+                raise
             except DesmanLockApiError as err:
                 _LOGGER.debug("Failed to fetch lock detailAndConfig: %s", err)
             battery_curve: dict[str, Any] = {}
             try:
                 battery_curve = await self.api.async_lock_battery_curve(lock_id)
+            except DesmanLockAuthError:
+                raise
             except DesmanLockApiError as err:
                 _LOGGER.debug("Failed to fetch lock battery curve: %s", err)
             open_records = await self.api.async_open_door_records(

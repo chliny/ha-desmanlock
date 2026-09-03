@@ -215,11 +215,25 @@ async def async_setup_entry(
 ) -> None:
     """Set up Desman Lock sensors."""
     coordinator: DesmanLockDataUpdateCoordinator = entry.runtime_data
-    async_add_entities(
-        DesmanLockSensor(coordinator, description)
-        for description in SENSORS
-        if description.exists_fn is None or description.exists_fn(coordinator)
-    )
+    added_keys: set[str] = set()
+
+    def add_available_sensors() -> None:
+        """Add sensors when a later refresh confirms their capability."""
+        descriptions = [
+            description
+            for description in SENSORS
+            if description.key not in added_keys
+            and (description.exists_fn is None or description.exists_fn(coordinator))
+        ]
+        if not descriptions:
+            return
+        added_keys.update(description.key for description in descriptions)
+        async_add_entities(
+            DesmanLockSensor(coordinator, description) for description in descriptions
+        )
+
+    add_available_sensors()
+    entry.async_on_unload(coordinator.async_add_listener(add_available_sensors))
 
 
 class DesmanLockSensor(DesmanLockEntity, SensorEntity):

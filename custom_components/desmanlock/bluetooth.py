@@ -408,6 +408,11 @@ class DesmanBluetoothLock:
         except Exception:
             if self._client is client:
                 self._client = None
+            try:
+                if client.is_connected:
+                    await client.disconnect()
+            except Exception:
+                _LOGGER.debug("Failed to disconnect Desman BLE client", exc_info=True)
             raise
         finally:
             try:
