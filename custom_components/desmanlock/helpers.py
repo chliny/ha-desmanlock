@@ -8,11 +8,19 @@ from .const import LOG_TYPE_OPEN_DOOR
 
 AUTO_LOCK_TEXT = "自动上锁"
 DOORBELL_RING_TEXT = "按响了门铃"
+LOCK_EVENT_KEYWORDS = ("上锁", "反锁", "锁门")
+
+
+def is_lock_event(text: str | None) -> bool:
+    """Return True when a DSM log text describes a locking event."""
+    if not text:
+        return False
+    return any(keyword in text for keyword in LOCK_EVENT_KEYWORDS)
 
 
 def extract_open_user(content: str | None) -> str | None:
     """Extract opener name from DSM log content."""
-    if not content or content == AUTO_LOCK_TEXT or DOORBELL_RING_TEXT in content:
+    if not content or is_lock_event(content) or DOORBELL_RING_TEXT in content:
         return None
     if content == "密码开锁":
         return content
