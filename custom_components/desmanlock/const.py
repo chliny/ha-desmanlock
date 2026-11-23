@@ -17,6 +17,9 @@ DEFAULT_SCAN_INTERVAL = 300
 PLATFORMS = ["image", "lock", "sensor"]
 
 BASE_URL = "https://nyuwa.dsmxp.com"
+# The desman cloud signs alarm-snapshot object keys with its own master
+# Tencent key, so no per-user Tencent AccessToken is needed.
+DSM_TENCENT_THUMBNAIL_PATH = "/nyuwa/tencent/describeCloudStorageThumbnail"
 APP_VERSION = "6.14.0"
 APP_VERSION_CODE = "20828"
 USER_AGENT = f"desmanlock/{APP_VERSION}"
@@ -38,3 +41,10 @@ SERVICE_GET_DYNAMIC_PASSWORD = "get_dynamic_password"
 SERVICE_GET_DIGIT_PASSWORDS = "get_digit_passwords"
 SERVICE_ADD_DIGIT_PASSWORD = "add_digit_password"
 SERVICE_UPDATE_DIGIT_PASSWORD = "update_digit_password"
+SERVICE_CLEANUP_SNAPSHOTS = "cleanup_snapshots"
+
+# Alarm snapshots are kept for this many days before the integration purges
+# them (approx. one month). A scheduled job runs every 6 hours and also once
+# on startup; the cleanup_snapshots service can override the window on demand.
+DEFAULT_SNAPSHOT_RETENTION_DAYS = 30
+SNAPSHOT_CLEANUP_INTERVAL_HOURS = 6
