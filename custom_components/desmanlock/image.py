@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components.image import ImageEntity, ImageEntityDescription
@@ -18,6 +19,26 @@ from .api import DesmanLockApiError
 from .const import DOMAIN
 from .coordinator import DesmanLockDataUpdateCoordinator
 from .entity import DesmanLockEntity, entity_identity, entity_unique_id
+
+# Shown instead of a broken image when the cloud snapshot cannot be resolved.
+# The upstream LinkVisual endpoint currently rejects this account's device
+# ("9564 device no user") while the app has migrated to Tencent IoT Video;
+# a real fix requires upstream support. The placeholder keeps dashboards and
+# image.snapshot automations working and is replaced automatically once a real
+# image becomes available again.
+_PLACEHOLDER_PATH = Path(__file__).with_name("snapshot_unavailable.jpg")
+_PLACEHOLDER_CACHE: bytes | None = None
+
+
+def _placeholder_bytes() -> bytes | None:
+    """Return the fallback JPEG shown when the cloud image is unavailable."""
+    global _PLACEHOLDER_CACHE
+    if _PLACEHOLDER_CACHE is None:
+        try:
+            _PLACEHOLDER_CACHE = _PLACEHOLDER_PATH.read_bytes()
+        except OSError:
+            return None
+    return _PLACEHOLDER_CACHE
 
 
 IMAGES: tuple[ImageEntityDescription, ...] = (
@@ -98,6 +119,24 @@ class DesmanLockSnapshotImage(DesmanLockEntity, ImageEntity):
                 return str(value)
         return None
 
+    def _tencent_ids(self) -> tuple[str, str] | None:
+        """Return (product_key, device_name) for the Tencent IoT Video API."""
+        detail_config = self.detail_config_data
+        detail = detail_config.get("lockDetailInfo") or detail_config.get("lockDetail") or {}
+        sources = (detail, detail_config, self.detail_data, self.lock_data)
+        product_key = device_name = None
+        for source in sources:
+            product_key = source.get("productKey") or product_key
+            device_name = (
+                source.get("deviceNameForIotKey")
+                or source.get("iotIdStr")
+                or source.get("iotId")
+                or device_name
+            )
+            if product_key and device_name:
+                return str(product_key), str(device_name)
+        return None
+
     @property
     def image_last_updated(self) -> datetime | None:
         """Return when the snapshot record changed."""
@@ -128,23 +167,67 @@ class DesmanLockSnapshotImage(DesmanLockEntity, ImageEntity):
             return self._image_bytes
         picture_id = self.record_data.get("pic")
         iot_id = self.iot_id
-        if not picture_id or not iot_id:
+        if not picture_id:
             return None
 
         signature = self._image_signature
         async with self._image_lock:
             if self._image_bytes is not None:
                 return self._image_bytes
-            try:
-                image_bytes, content_type = await self.coordinator.api.async_picture(
-                    iot_id, str(picture_id)
-                )
-            except DesmanLockApiError as err:
-                raise HomeAssistantError(str(err)) from err
+
+            last_error: DesmanLockApiError | None = None
+
+            # Preferred path: the app migrated alarm snapshots to Tencent IoT
+            # Video. The desman cloud signs snapshot keys with its own master
+            # Tencent key, so no per-user access token is needed -- keys are
+            # built locally from the alarm timestamp. This makes the snapshot
+            # self-maintaining (no periodic token re-capture required).
+            ids = self._tencent_ids()
+            if ids:
+                product_key, device_name = ids
+                try:
+                    image_bytes, content_type = (
+                        await self.coordinator.api.async_picture_tencent(
+                            str(picture_id),
+                            product_key,
+                            device_name,
+                            self.lock_id,
+                        )
+                    )
+                    if signature == self._image_signature:
+                        self._image_bytes = image_bytes
+                        self._attr_content_type = content_type
+                    return image_bytes
+                except DesmanLockApiError as err:
+                    last_error = err
+
+            # Legacy path: Alibaba LinkVisual (kept for older devices/regions).
+            if iot_id:
+                try:
+                    image_bytes, content_type = (
+                        await self.coordinator.api.async_picture(
+                            iot_id, str(picture_id)
+                        )
+                    )
+                except DesmanLockApiError as err:
+                    last_error = err
+                else:
+                    if signature == self._image_signature:
+                        self._image_bytes = image_bytes
+                        self._attr_content_type = content_type
+                    return image_bytes
+
+            # Do not surface a 500/broken image. Serve an explicit placeholder
+            # so the image proxy and image.snapshot keep working; it is cached
+            # under the same signature and will be replaced by the real image
+            # once the snapshot becomes available or the cloud recovers.
+            fallback = _placeholder_bytes()
+            if fallback is None:
+                raise HomeAssistantError(str(last_error)) from last_error
+            self._attr_content_type = "image/jpeg"
             if signature == self._image_signature:
-                self._image_bytes = image_bytes
-                self._attr_content_type = content_type
-            return image_bytes
+                self._image_bytes = fallback
+            return fallback
 
     @callback
     def _handle_coordinator_update(self) -> None:

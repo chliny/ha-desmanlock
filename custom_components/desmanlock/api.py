@@ -14,19 +14,38 @@ from threading import Lock
 import time
 from typing import Any
 from uuid import uuid4
+import io
 
 import requests
+from PIL import Image as PILImage
 
 from .const import (
     APP_VERSION,
     APP_VERSION_CODE,
     BASE_URL,
     DEFAULT_REGION_ID,
+    DSM_TENCENT_THUMBNAIL_PATH,
     USER_AGENT,
 )
 from .exceptions import DesmanLockApiError, DesmanLockAuthError
 
 REQUEST_TIMEOUT = 25
+
+# The Q2FV cat-eye sensor is mounted sideways, so raw Tencent snapshots are
+# rotated 90 degrees. Rotate clockwise before storing/serving so snapshots and
+# pushed images appear upright. Set to 0 to disable; 90/180/270 supported.
+SNAPSHOT_ROTATE_CW = 90
+
+# Desman's Tencent Cloud UIN. Alarm snapshots live under the object-key
+# namespace /<uin>/<productKey>/<deviceName>/ in the desman-owned Tencent
+# bucket. The desman cloud signs these keys with its own master Tencent
+# key, so NO per-user Tencent AccessToken is needed to fetch snapshots.
+TENCENT_COS_UIN = "100029144231"
+_ROTATE_MAP = {
+    90: PILImage.Transpose.ROTATE_270,
+    180: PILImage.Transpose.ROTATE_180,
+    270: PILImage.Transpose.ROTATE_90,
+}
 
 _ALI_OPEN_ACCOUNT_HOST = "sdk.openaccount.aliyun.com"
 _ALI_IOT_HOST = "api.link.aliyun.com"
@@ -470,6 +489,115 @@ class DesmanLockApiClient:
                 f"Alibaba picture has invalid content type: {content_type or 'unknown'}"
             )
         return response.content, content_type
+
+    @staticmethod
+    def _local_thumbnail_keys(
+        picture_id: str, product_key: str, device_name: str
+    ) -> list[str]:
+        """Build snapshot object keys directly from the alarm timestamp.
+
+        The alarm log's ``picture`` value is a Unix-second timestamp that is
+        exactly the ``simple/<ts>.jpg`` object key. Building keys locally means
+        no Tencent AccessToken / Events query is needed: the desman cloud signs
+        these keys with its own master Tencent key. The high-res ``events/``
+        frames land 2-4 seconds later, so a few are included as fallbacks; the
+        exact ``simple/`` frame is always tried first.
+        """
+        try:
+            ts = int(picture_id)
+        except (TypeError, ValueError) as err:
+            raise DesmanLockApiError(
+                f"Invalid alarm picture id: {picture_id}"
+            ) from err
+        base = f"/{TENCENT_COS_UIN}/{product_key}/{device_name}"
+        return [
+            f"{base}/simple/{ts}.jpg",
+            f"{base}/events/{ts + 3}.jpg",
+            f"{base}/events/{ts + 2}.jpg",
+            f"{base}/events/{ts + 4}.jpg",
+        ]
+
+    def picture_tencent(
+        self,
+        picture_id: str,
+        product_key: str,
+        device_name: str,
+        device_id: str,
+        token: str = "",
+    ) -> tuple[bytes, str]:
+        """Resolve and download an alarm snapshot via the desman cloud.
+
+        Object keys are built locally from the alarm timestamp and signed by
+        the desman backend, so no Tencent AccessToken is required. ``token`` is
+        kept for backwards compatibility and is intentionally ignored.
+
+        Raises DesmanLockApiError on any failure so the caller can fall back to
+        the placeholder image.
+        """
+        keys = self._local_thumbnail_keys(picture_id, product_key, device_name)
+
+        self.ensure_token()
+        body = {
+            "thumbnailList": keys,
+            "productId": product_key,
+            "action": "IotVideoDescribeCloudStorageThumbnail",
+            # No accessToken: the desman backend signs keys with its own master
+            # Tencent key (verified: token is not validated by this endpoint).
+            "deviceName": device_name,
+            "deviceId": device_id,
+        }
+        headers = self._headers()
+        headers["Content-Type"] = "application/json;charset=utf-8"
+        link_resp = requests.post(
+            f"{BASE_URL}{DSM_TENCENT_THUMBNAIL_PATH}",
+            headers=headers,
+            data=json.dumps(body),
+            timeout=REQUEST_TIMEOUT,
+        )
+        link_resp.raise_for_status()
+        payload = link_resp.json()
+        if payload.get("success") is not True:
+            raise DesmanLockApiError(
+                f"Tencent thumbnail signing failed: "
+                f"{payload.get('message') or payload.get('msg') or payload.get('code')}"
+            )
+        data = payload.get("data") or []
+        info = data[0].get("thumbnailURLInfoList", []) if data else []
+        urls = [item.get("thumbnailURL") for item in info if item.get("thumbnailURL")]
+        if not urls:
+            raise DesmanLockApiError("No signed Tencent thumbnail URL returned")
+
+        last_error: DesmanLockApiError | None = None
+        for url in urls:
+            try:
+                response = requests.get(url, timeout=REQUEST_TIMEOUT)
+                response.raise_for_status()
+            except requests.RequestException as err:
+                last_error = DesmanLockApiError(
+                    f"Unable to download Tencent picture: {type(err).__name__}"
+                )
+                continue
+            content_type = response.headers.get("content-type", "").split(";", 1)[0]
+            if not content_type.startswith("image/"):
+                last_error = DesmanLockApiError(
+                    f"Tencent picture has invalid content type: {content_type or 'unknown'}"
+                )
+                continue
+            image_bytes = response.content
+            # Rotate the sideways cat-eye sensor image upright. Rotation is
+            # best-effort: if Pillow cannot decode it, serve the original bytes.
+            transpose = _ROTATE_MAP.get(SNAPSHOT_ROTATE_CW)
+            if transpose and image_bytes[:2] == b"\xff\xd8":
+                try:
+                    with PILImage.open(io.BytesIO(image_bytes)) as picture:
+                        oriented = picture.transpose(transpose)
+                        buffer = io.BytesIO()
+                        oriented.save(buffer, format="JPEG", quality=92)
+                        image_bytes = buffer.getvalue()
+                except Exception as err:  # pragma: no cover - defensive
+                    _LOGGER.debug("Unable to rotate Tencent snapshot: %s", err)
+            return image_bytes, content_type
+        raise last_error or DesmanLockApiError("Unable to download Tencent picture")
 
     def ali_invoke_thing_service(
         self,
@@ -1063,6 +1191,24 @@ class DesmanLockApiClient:
     ) -> tuple[bytes, str]:
         """Resolve and download an Alibaba picture asynchronously."""
         return await asyncio.to_thread(self.picture, iot_id, picture_id)
+
+    async def async_picture_tencent(
+        self,
+        picture_id: str,
+        product_key: str,
+        device_name: str,
+        device_id: str,
+        token: str = "",
+    ) -> tuple[bytes, str]:
+        """Resolve and download a desman-cloud snapshot asynchronously."""
+        return await asyncio.to_thread(
+            self.picture_tencent,
+            picture_id,
+            product_key,
+            device_name,
+            device_id,
+            token,
+        )
 
     async def async_ali_live_stream(
         self,

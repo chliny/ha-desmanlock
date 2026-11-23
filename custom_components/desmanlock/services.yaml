@@ -68,3 +68,18 @@ update_digit_password:
           min: 0
           mode: box
       required: true
+
+cleanup_snapshots:
+  name: Clean up alarm snapshots
+  description: Delete alarm snapshots older than the retention window (default 30 days).
+  fields:
+    retention_days:
+      name: Retention days
+      description: Delete snapshots older than this many days.
+      selector:
+        number:
+          min: 1
+          max: 3650
+          mode: box
+      required: false
+      default: 30

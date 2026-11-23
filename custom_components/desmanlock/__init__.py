@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 import logging
 from typing import Any
 
@@ -13,6 +14,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
@@ -23,14 +25,18 @@ from .const import (
     CONF_REGION_ID,
     DEFAULT_REGION_ID,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SNAPSHOT_RETENTION_DAYS,
     DOMAIN,
     PLATFORMS,
     SERVICE_ADD_DIGIT_PASSWORD,
+    SERVICE_CLEANUP_SNAPSHOTS,
     SERVICE_GET_DIGIT_PASSWORDS,
     SERVICE_GET_DYNAMIC_PASSWORD,
     SERVICE_UPDATE_DIGIT_PASSWORD,
+    SNAPSHOT_CLEANUP_INTERVAL_HOURS,
 )
 from .coordinator import DesmanLockDataUpdateCoordinator
+from .snapshot_cleanup import async_purge_expired_snapshots
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +48,7 @@ SERVICE_NAMES = (
     SERVICE_GET_DIGIT_PASSWORDS,
     SERVICE_ADD_DIGIT_PASSWORD,
     SERVICE_UPDATE_DIGIT_PASSWORD,
+    SERVICE_CLEANUP_SNAPSHOTS,
 )
 
 
@@ -73,6 +80,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Purge alarm snapshots older than the retention window: once at startup
+    # and every few hours afterwards. One shared schedule per HA instance,
+    # regardless of how many lock entries are configured.
+    cleanup_key = f"{DOMAIN}_snapshot_cleanup_unsub"
+
+    async def _scheduled_cleanup(_now: Any) -> None:
+        deleted, _kept = await async_purge_expired_snapshots(
+            hass, DEFAULT_SNAPSHOT_RETENTION_DAYS
+        )
+        if deleted:
+            _LOGGER.info(
+                "Removed %d expired alarm snapshot(s)", deleted
+            )
+
+    if cleanup_key not in hass.data:
+        await _scheduled_cleanup(None)
+        hass.data[cleanup_key] = async_track_time_interval(
+            hass,
+            _scheduled_cleanup,
+            timedelta(hours=SNAPSHOT_CLEANUP_INTERVAL_HOURS),
+        )
+
     return True
 
 
@@ -129,6 +159,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) 
         ):
             for service in SERVICE_NAMES:
                 hass.services.async_remove(DOMAIN, service)
+            cleanup_key = f"{DOMAIN}_snapshot_cleanup_unsub"
+            if unsub := hass.data.pop(cleanup_key, None):
+                unsub()
     return unloaded
 
 
@@ -213,6 +246,27 @@ def _async_setup_services(hass: HomeAssistant) -> None:
                 vol.Required("real_time_switch"): vol.In((0, 1)),
                 vol.Required("range_time"): cv.string,
                 vol.Required("state"): cv.positive_int,
+            }
+        ),
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    async def cleanup_snapshots(call: ServiceCall) -> dict[str, Any]:
+        retention = int(
+            call.data.get("retention_days", DEFAULT_SNAPSHOT_RETENTION_DAYS)
+        )
+        deleted, kept = await async_purge_expired_snapshots(hass, retention)
+        return {"deleted": deleted, "kept": kept, "retention_days": retention}
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CLEANUP_SNAPSHOTS,
+        cleanup_snapshots,
+        schema=vol.Schema(
+            {
+                vol.Optional(
+                    "retention_days", default=DEFAULT_SNAPSHOT_RETENTION_DAYS
+                ): cv.positive_int,
             }
         ),
         supports_response=SupportsResponse.ONLY,
